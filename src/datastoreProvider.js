@@ -1,7 +1,7 @@
 const { getTableNameForModel, getTableNameForInstance } = require('./utils')
 const dynamoClient = require('./dynamoClient')
 
-const dynamoDatastoreProvider = ({ connection, getTableNameForModel=getTableNameForModel, getTableNameForInstance=getTableNameForInstance}) => {
+const dynamoDatastoreProvider = ({ connection, getTableNameForModel=getTableNameForModel }) => {
 
   const search = (model, ormQuery) => {
     return Promise.resolve()
@@ -25,7 +25,7 @@ const dynamoDatastoreProvider = ({ connection, getTableNameForModel=getTableName
   const save = async (instance) => {
     return Promise.resolve()
       .then(async () => {
-        const tableName = getTableNameForInstance(instance)
+        const tableName = getTableNameForModel(instance.meta.getModel())
         const client = dynamoClient({ tableName, connection })
         const data = await instance.functions.toObj()
         await client.update({ key: { id: data.id }, item: data })
@@ -36,7 +36,7 @@ const dynamoDatastoreProvider = ({ connection, getTableNameForModel=getTableName
   const deleteObj = instance => {
     return Promise.resolve()
       .then(async () => {
-        const tableName = getTableNameForInstance(instance)
+        const tableName = getTableNameForModel(instance.meta.getModel())
         const client = dynamoClient({ tableName, connection })
         const id = await instance.getId()
         return client.delete({ key: { id } })
