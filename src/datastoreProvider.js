@@ -24,7 +24,7 @@ const dynamoDatastoreProvider = ({ connection, getTableNameForModel=getTableName
 
   const save = async (instance) => {
     return Promise.resolve()
-      .then(() => {
+      .then(async () => {
         const tableName = getTableNameForModel(instance)
         const client = dynamoClient({ tableName, connection })
         const data = await instance.functions.toObj()
@@ -35,7 +35,7 @@ const dynamoDatastoreProvider = ({ connection, getTableNameForModel=getTableName
 
   const deleteObj = instance => {
     return Promise.resolve()
-      .then(() => {
+      .then(async () => {
         const tableName = getTableNameForModel(instance)
         const client = dynamoClient({ tableName, connection })
         const id = await instance.getId()

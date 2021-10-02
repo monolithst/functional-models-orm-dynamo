@@ -21,7 +21,10 @@
   "bugs": {
     "url": "https://github.com/monolithst/functional-models-orm-dynamo/issues"
   },
-  "dependencies": {},
+  "dependencies": {
+    "aws-sdk": "^2.999.0",
+    "functional-models-orm": "^1.0.2"
+  },
   "devDependencies": {
     "babel-eslint": "^10.1.0",
     "chai": "^4.3.0",
