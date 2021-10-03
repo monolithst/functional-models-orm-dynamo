@@ -16,22 +16,22 @@ const dynamoDatastoreProvider = ({
     dynamo,
     tableName,
     ormQuery,
-    oldModelsFound = []
+    oldInstancesFound = []
   ) => {
     const query = queryBuilder(tableName, ormQuery)
     return dynamo
       .scan(query)
       .promise()
       .then(data => {
-        const models = data.Items.map(item => {
+        const instances = data.Items.map(item => {
           return Object.entries(item).reduce((acc, [key, obj]) => {
             const value = Object.values(obj)[0]
             return merge(acc, { [key]: value })
           }, {})
-        }).concat(oldModelsFound)
+        }).concat(oldInstancesFound)
         const lastEvaluatedKey = get(data, 'LastEvaluatedKey', null)
         // We want to keep scanning until we've met our threshold OR there is no more keys to evaluate
-        if (models.length < SCAN_RETURN_THRESHOLD && lastEvaluatedKey) {
+        if (instances.length < SCAN_RETURN_THRESHOLD && lastEvaluatedKey) {
           const newQuery = merge(ormQuery, {
             page: lastEvaluatedKey,
           })
@@ -39,11 +39,11 @@ const dynamoDatastoreProvider = ({
             dynamo,
             tableName,
             newQuery,
-            models
+            instances
           )
         }
         return {
-          models,
+          instances,
           page: lastEvaluatedKey,
         }
       })

@@ -1,10 +1,12 @@
 {
   "name": "functional-models-orm-dynamo",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "An implmentation of functional-models-orm for dynamodb.",
   "main": "index.js",
   "scripts": {
-    "test": "npm test"
+    "test": "nyc --all mocha --recursive ./test/**/*.test.js",
+    "feature-tests": "./node_modules/@cucumber/cucumber/bin/cucumber-js",
+    "coverage": "nyc --all --reporter=lcov npm test"
   },
   "repository": {
     "type": "git",
