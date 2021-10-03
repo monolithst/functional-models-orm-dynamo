@@ -5,6 +5,19 @@ const queryBuilder = (tableName, ormQuery) => {
   const properties = ormQuery.properties
   const page = get(ormQuery, 'page', undefined)
 
+  const startKey = page
+    ? {
+      ExclusiveStartKey: page,
+    }
+    : {}
+
+  if (Object.keys(properties).length < 1) {
+    return {
+      ...startKey,
+      TableName: tableName,
+    }
+  }
+
   const propKeyToKey = Object.entries(properties).reduce((acc, [key, _]) => {
     return merge(acc, { [key]: `my${key}` })
   }, {})
@@ -35,12 +48,6 @@ const queryBuilder = (tableName, ormQuery) => {
     },
     {}
   )
-
-  const startKey = page
-    ? {
-        ExclusiveStartKey: page,
-      }
-    : {}
 
   return {
     ...startKey,
