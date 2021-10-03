@@ -1,9 +1,11 @@
 const { orm } = require('functional-models-orm')
 const createDatastoreProvider = require('./datastoreProvider')
 
-
-const dynamoOrm = ({ dynamoConnection, getTableNameForModel=null}) => {
-  const datastoreProvider = createDatastoreProvider({ connection: dynamoConnection, getTableNameForModel})
+const dynamoOrm = ({ dynamoOptions, getTableNameForModel = null }) => {
+  const datastoreProvider = createDatastoreProvider({
+    dynamoOptions,
+    getTableNameForModel,
+  })
   return orm({
     datastoreProvider,
   })

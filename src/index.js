@@ -1,4 +1,4 @@
 module.exports = {
   orm: require('./orm'),
-  datastoreProvider: require('./datastoreProvider')
+  datastoreProvider: require('./datastoreProvider'),
 }
