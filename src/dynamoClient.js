@@ -1,7 +1,8 @@
 const AWS = require('aws-sdk')
 
 const dynamoClient = ({ tableName, dynamoOptions }) => {
-  const docClient = new AWS.DynamoDB.DocumentClient(dynamoOptions)
+  const dynamo = new AWS.DynamoDB(dynamoOptions)
+  const docClient = new AWS.DynamoDB.DocumentClient({ service: dynamo })
 
   const get = async ({ key }) => {
     const params = {

@@ -23,7 +23,8 @@
   },
   "dependencies": {
     "aws-sdk": "^2.999.0",
-    "functional-models-orm": "^1.0.4"
+    "functional-models-orm": "^1.0.4",
+    "lodash": "^4.17.21"
   },
   "devDependencies": {
     "babel-eslint": "^10.1.0",
