@@ -78,7 +78,7 @@ describe('/src/queryBuilder.js', () => {
       const query = ormQueryBuilder().property('name', null).compile()
       const actual = queryBuilder('my-table', query).ExpressionAttributeValues
       const expected = {
-        ':myname': { NULL: true },
+        ':myname': { S: "" },
       }
       assert.deepEqual(actual, expected)
     })
@@ -90,7 +90,7 @@ describe('/src/queryBuilder.js', () => {
       const actual = queryBuilder('my-table', query).ExpressionAttributeValues
       const expected = {
         ':myname': { S: 'value' },
-        ':myother': { NULL: true },
+        ':myother': { S: "" },
       }
       assert.deepEqual(actual, expected)
     })

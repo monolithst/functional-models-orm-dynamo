@@ -47,10 +47,7 @@ const queryBuilder = (tableName, ormQuery) => {
   const expressionAttributeValues = Object.entries(properties).reduce(
     (acc, [key, partial]) => {
       // TODO: Cannot handle anything but strings
-      if (partial.value === null || partial.value === undefined) {
-        return merge(acc, { [`:${propKeyToKey[key]}`]: { NULL: true } })
-      }
-      const value = partial.value
+      const value = (partial.value === null || partial.value === undefined) ? "" : partial.value
       return merge(acc, { [`:${propKeyToKey[key]}`]: { S: value } })
     },
     {}
