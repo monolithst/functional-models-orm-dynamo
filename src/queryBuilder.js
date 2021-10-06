@@ -7,8 +7,8 @@ const queryBuilder = (tableName, ormQuery) => {
 
   const startKey = page
     ? {
-      ExclusiveStartKey: page,
-    }
+        ExclusiveStartKey: page,
+      }
     : {}
 
   if (Object.keys(properties).length < 1) {
@@ -19,12 +19,14 @@ const queryBuilder = (tableName, ormQuery) => {
   }
 
   const propKeyToKey = Object.entries(properties).reduce((acc, [key, _]) => {
-    return merge(acc, { [key]: `my${key}` })
+    const newKey = `my${key}`.replace('-', '').replace('_', '')
+    return merge(acc, { [key]: newKey })
   }, {})
 
   const propNametoExpressionAttribute = Object.entries(properties).reduce(
     (acc, [key, _]) => {
-      return merge(acc, { [key]: `#my${key}` })
+      const newKey = `#my${key}`.replace('-', '').replace('_', '')
+      return merge(acc, { [key]: newKey })
     },
     {}
   )
@@ -44,7 +46,12 @@ const queryBuilder = (tableName, ormQuery) => {
 
   const expressionAttributeValues = Object.entries(properties).reduce(
     (acc, [key, partial]) => {
-      return merge(acc, { [`:${propKeyToKey[key]}`]: { S: partial.value } })
+      // TODO: Cannot handle anything but strings
+      if (partial.value === null || partial.value === undefined) {
+        return merge(acc, { [`:${propKeyToKey[key]}`]: { NULL: true } })
+      }
+      const value = partial.value
+      return merge(acc, { [`:${propKeyToKey[key]}`]: { S: value } })
     },
     {}
   )

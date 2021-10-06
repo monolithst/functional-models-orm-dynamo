@@ -3,14 +3,24 @@ const get = require('lodash/get')
 const merge = require('lodash/merge')
 // This is a BS error
 // eslint-disable-next-line no-unused-vars
-const { getTableNameForModel } = require('./utils')
+const { getTableNameForModel: defaultTableModelName } = require('./utils')
 const dynamoClient = require('./dynamoClient')
 const queryBuilder = require('./queryBuilder')
 const { SCAN_RETURN_THRESHOLD } = require('./constants')
 
+const _readDynamoValue = obj => {
+  if (obj.NULL && obj.NULL === true) {
+    return null
+  }
+  if (obj.L) {
+    return obj.L.map(x => Object.values(x)[0])
+  }
+  return Object.values(obj)[0]
+}
+
 const dynamoDatastoreProvider = ({
   dynamoOptions,
-  getTableNameForModel = getTableNameForModel,
+  getTableNameForModel = defaultTableModelName,
 }) => {
   const _doSearchUntilThresholdOrNoLastEvaluatedKey = (
     dynamo,
@@ -25,32 +35,40 @@ const dynamoDatastoreProvider = ({
       .then(data => {
         const instances = data.Items.map(item => {
           return Object.entries(item).reduce((acc, [key, obj]) => {
-            const value = Object.values(obj)[0]
+            const value = _readDynamoValue(obj)
             return merge(acc, { [key]: value })
           }, {})
         }).concat(oldInstancesFound)
+        const usingTake = ormQuery.take > 0
+        const take = ormQuery.take > 0 ? ormQuery.take : SCAN_RETURN_THRESHOLD
         const lastEvaluatedKey = get(data, 'LastEvaluatedKey', null)
-        // We want to keep scanning until we've met our threshold OR there is no more keys to evaluate
-        if (instances.length < SCAN_RETURN_THRESHOLD && lastEvaluatedKey) {
-          const newQuery = merge(ormQuery, {
-            page: lastEvaluatedKey,
-          })
-          return _doSearchUntilThresholdOrNoLastEvaluatedKey(
-            dynamo,
-            tableName,
-            newQuery,
-            instances
-          )
+        /*
+          We want to keep scanning until we've met our threshold OR
+         there is no more keys to evaluate OR
+         we have a "take" and we've hit our max.
+        */
+        const stopForThreshold = instances.length > take
+        const stopForNoMore = !lastEvaluatedKey
+        if (stopForThreshold || stopForNoMore) {
+          return {
+            instances: instances.slice(0, take),
+            page: usingTake ? null : lastEvaluatedKey,
+          }
         }
-        return {
-          instances,
+        const newQuery = merge(ormQuery, {
           page: lastEvaluatedKey,
-        }
+        })
+        return _doSearchUntilThresholdOrNoLastEvaluatedKey(
+          dynamo,
+          tableName,
+          newQuery,
+          instances
+        )
       })
   }
 
   const search = (model, ormQuery) => {
-    return Promise.resolve().then(() => {
+    return Promise.resolve().then(async () => {
       const tableName = getTableNameForModel(model)
       const dynamo = new AWS.DynamoDB(dynamoOptions)
       return _doSearchUntilThresholdOrNoLastEvaluatedKey(
@@ -74,8 +92,9 @@ const dynamoDatastoreProvider = ({
       const tableName = getTableNameForModel(instance.meta.getModel())
       const client = dynamoClient({ tableName, dynamoOptions })
       const data = await instance.functions.toObj()
-      await client.update({ key: { id: data.id }, item: data })
-      return instance.meta.getModel().create(data)
+      const key = instance.meta.getModel().getPrimaryKeyName()
+      await client.update({ key: { [key]: data[key] }, item: data })
+      return data
     })
   }
 
@@ -83,7 +102,7 @@ const dynamoDatastoreProvider = ({
     return Promise.resolve().then(async () => {
       const tableName = getTableNameForModel(instance.meta.getModel())
       const client = dynamoClient({ tableName, dynamoOptions })
-      const id = await instance.getId()
+      const id = await instance.functions.getPrimaryKey()
       return client.delete({ key: { id } })
     })
   }
