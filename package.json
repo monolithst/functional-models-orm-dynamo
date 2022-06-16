@@ -12,6 +12,9 @@
     "build": "tsc -p ./tsconfig.build.json && cp package.json ./dist && cp README.md ./dist",
     "dist": "npm run build && cd dist && npm publish"
   },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/monolithst/functional-models-orm-dynamo.git"
