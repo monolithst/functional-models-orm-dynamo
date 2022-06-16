@@ -1,14 +1,15 @@
-const assert = require('chai').assert
-const sinon = require('sinon')
-const { getTableNameForModel } = require('../../src/utils')
+import { Model } from 'functional-models/interfaces'
+import { assert } from 'chai'
+import sinon from 'sinon'
+import { getTableNameForModel } from '../../src/utils'
 
-const buildModel = name => {
+const buildModel = (name: string) : Model<any> => {
   return {
     getName: () => name,
-  }
+  } as Model<any>
 }
 
-describe('/src/utils.js', () => {
+describe('/src/utils.ts', () => {
   describe('#getTableNameForModel()', () => {
     it('should return "my-table" for "My_Table"', () => {
       const actual = getTableNameForModel(buildModel('My_Table'))

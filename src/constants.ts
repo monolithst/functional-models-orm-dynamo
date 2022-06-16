@@ -581,7 +581,7 @@ const RESERVED_KEYWORDS = {
 
 const SCAN_RETURN_THRESHOLD = 1000
 
-module.exports = {
+export {
   RESERVED_KEYWORDS,
   SCAN_RETURN_THRESHOLD,
 }
