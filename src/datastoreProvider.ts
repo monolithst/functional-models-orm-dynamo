@@ -1,4 +1,3 @@
-import AWS from 'aws-sdk'
 import { get, merge } from 'lodash'
 import { Model, FunctionalModel, ModelInstance, PrimaryKeyType } from 'functional-models/interfaces'
 import { OrmQuery, DatastoreProvider } from 'functional-models-orm/interfaces'
@@ -104,7 +103,8 @@ const dynamoDatastoreProvider = ({
     return Promise.resolve().then(() => {
       const tableName = getTableNameForModel(model)
       const client = dynamoClient({ tableName, dynamoOptions, AWS })
-      return client.get<T>({ key: { id: `${id}` }})
+      const primaryKeyName = model.getPrimaryKeyName()
+      return client.get<T>({ key: { [primaryKeyName]: `${id}` }})
     })
   }
 
@@ -128,7 +128,8 @@ const dynamoDatastoreProvider = ({
       const tableName = getTableNameForModel(instance.getModel())
       const client = dynamoClient({ tableName, AWS, dynamoOptions })
       const id = await instance.getPrimaryKey()
-      await client.delete({ key: { id: `${id}` } })
+      const primaryKeyName = instance.getModel().getPrimaryKeyName()
+      await client.delete({ key: { [primaryKeyName]: `${id}` } })
     })
   }
 
