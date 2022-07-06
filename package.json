@@ -1,6 +1,6 @@
 {
   "name": "functional-models-orm-dynamo",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "An implmentation of functional-models-orm for dynamodb.",
   "main": "index.js",
   "types": "index.d.ts",
@@ -50,7 +50,7 @@
   },
   "dependencies": {
     "functional-models": "^2.0.5",
-    "functional-models-orm": "^2.0.13",
+    "functional-models-orm": "^2.0.17",
     "lodash": "^4.17.21"
   },
   "devDependencies": {
