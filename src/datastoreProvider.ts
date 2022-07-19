@@ -8,20 +8,6 @@ import dynamoClient from './dynamoClient'
 import queryBuilder from './queryBuilder'
 import { SCAN_RETURN_THRESHOLD } from './constants'
 
-const _isArray = <T>(o: unknown) : o is T[] => {
-  return Array.isArray(o)
-}
-
-const _readDynamoValue = (obj: any) => {
-  if (obj.NULL && obj.NULL === true) {
-    return null
-  }
-  if (obj.L && _isArray<any>(obj.L)) {
-    return obj.L.map((x: any) => Object.values(x)[0])
-  }
-  return Object.values(obj)[0]
-}
-
 type DatastoreProviderInputs = {
   AWS: any,
   dynamoOptions: object,
@@ -48,8 +34,7 @@ const dynamoDatastoreProvider = ({
       .then((data: any) => {
         const instances = data.Items.map((item: object) => {
           return Object.entries(item).reduce((acc, [key, obj]) => {
-            const value = _readDynamoValue(obj)
-            return merge(acc, { [key]: value })
+            return merge(acc, { [key]: obj})
           }, {})
         }).concat(oldInstancesFound)
 
@@ -88,8 +73,9 @@ const dynamoDatastoreProvider = ({
     return Promise.resolve().then(async () => {
       const tableName = getTableNameForModel(model)
       const dynamo = new AWS.DynamoDB(dynamoOptions)
+      const docClient = new AWS.DynamoDB.DocumentClient({ service: dynamo })
       return _doSearchUntilThresholdOrNoLastEvaluatedKey(
-        dynamo,
+        docClient,
         tableName,
         ormQuery
       )

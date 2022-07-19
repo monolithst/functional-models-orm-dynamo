@@ -3,7 +3,6 @@ import { ModelInstanceInputData, FunctionalModel } from 'functional-models/inter
 const dynamoClient = ({ tableName, dynamoOptions, AWS }:{ AWS: any, tableName: string, dynamoOptions: object}) => {
   const dynamo = new AWS.DynamoDB(dynamoOptions)
   const docClient = new AWS.DynamoDB.DocumentClient({ service: dynamo })
-  console.log(docClient)
 
   const get = async <T extends FunctionalModel>({ key }:{ key: {[s: string]: string}}) => {
     const params = {

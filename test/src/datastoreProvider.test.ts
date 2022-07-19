@@ -54,19 +54,19 @@ const setupMocks = () => {
 
 const _createDynamoStringResult = (key: string, value: string) => {
   return {
-    [key]: { S: value },
+    [key]: value,
   }
 }
 
 const _createDynamoStingArrayResult = (key: string, values: any[]) => {
   return {
-    [key]: { L: values.map(x => ({ S: x })) },
+    [key]: values,
   }
 }
 
 const _createDynamoNullResult = (key: string) => {
   return {
-    [key]: { NULL: true },
+    [key]: null,
   }
 }
 
@@ -106,7 +106,7 @@ describe('/src/datastoreProvider.js', function() {
         const obj = { id: 'my-id', name: 'my-name' }
         const query = ormQueryBuilder().property('name', 'my-name').compile()
         // @ts-ignore
-        AWS.DynamoDB.scan.onFirstCall().returns({
+        AWS.DynamoDB.DocumentClient.scan.onFirstCall().returns({
           promise: () =>
             Promise.resolve().then(() => ({
               Items: [],
@@ -115,7 +115,7 @@ describe('/src/datastoreProvider.js', function() {
         })
         await instance.search(createTestModel1(obj).getModel(), query)
         // @ts-ignore
-        sinon.assert.calledOnce(AWS.DynamoDB.scan)
+        sinon.assert.calledOnce(AWS.DynamoDB.DocumentClient.scan)
       })
       it('should be able to process a string value result', async () => {
         const { datastoreProvider, AWS } = setupMocks()
@@ -123,7 +123,7 @@ describe('/src/datastoreProvider.js', function() {
         const obj = { id: 'my-id', name: 'my-name' }
         const query = ormQueryBuilder().property('name', 'my-name').compile()
         // @ts-ignore
-        AWS.DynamoDB.scan.onFirstCall().returns({
+        AWS.DynamoDB.DocumentClient.scan.onFirstCall().returns({
           promise: () =>
             Promise.resolve().then(() => ({
               Items: [
@@ -151,7 +151,7 @@ describe('/src/datastoreProvider.js', function() {
         const obj = { id: 'my-id', name: 'my-name' }
         const query = ormQueryBuilder().property('name', null).compile()
         // @ts-ignore
-        AWS.DynamoDB.scan.onFirstCall().returns({
+        AWS.DynamoDB.DocumentClient.scan.onFirstCall().returns({
           promise: () =>
             Promise.resolve().then(() => ({
               Items: [
@@ -179,7 +179,7 @@ describe('/src/datastoreProvider.js', function() {
         const obj = { id: 'my-id', name: 'my-name' }
         const query = ormQueryBuilder().property('names', 'my-name').compile()
         // @ts-ignore
-        AWS.DynamoDB.scan.onFirstCall().returns({
+        AWS.DynamoDB.DocumentClient.scan.onFirstCall().returns({
           promise: () =>
             Promise.resolve().then(() => ({
               Items: [
@@ -207,7 +207,7 @@ describe('/src/datastoreProvider.js', function() {
         const obj = { id: 'my-id', name: 'my-name' }
         const query = ormQueryBuilder().property('name', null).take(1).compile()
         // @ts-ignore
-        AWS.DynamoDB.scan.onFirstCall().returns({
+        AWS.DynamoDB.DocumentClient.scan.onFirstCall().returns({
           promise: () =>
             Promise.resolve().then(() => ({
               Items: [
@@ -239,7 +239,7 @@ describe('/src/datastoreProvider.js', function() {
         const obj = { id: 'my-id', name: 'my-name' }
         const query = ormQueryBuilder().property('name', 'my-name').compile()
         // @ts-ignore
-        AWS.DynamoDB.scan.onFirstCall().returns({
+        AWS.DynamoDB.DocumentClient.scan.onFirstCall().returns({
           promise: () =>
             Promise.resolve().then(() => ({
               Items: [],
@@ -247,7 +247,7 @@ describe('/src/datastoreProvider.js', function() {
             })),
         })
         // @ts-ignore
-        AWS.DynamoDB.scan.onSecondCall().returns({
+        AWS.DynamoDB.DocumentClient.scan.onSecondCall().returns({
           promise: () =>
             Promise.resolve().then(() => ({
               Items: [{ something: 'returned' }],
@@ -256,7 +256,7 @@ describe('/src/datastoreProvider.js', function() {
         })
         await instance.search(createTestModel1(obj).getModel(), query)
         // @ts-ignore
-        sinon.assert.calledTwice(AWS.DynamoDB.scan)
+        sinon.assert.calledTwice(AWS.DynamoDB.DocumentClient.scan)
       })
       it('should call dynamo.scan twice when LastEvaluatedKey has a value the second time but take:2 and 3 items are returned', async () => {
         const { datastoreProvider, AWS } = setupMocks()
@@ -267,7 +267,7 @@ describe('/src/datastoreProvider.js', function() {
           .take(2)
           .compile()
         // @ts-ignore
-        AWS.DynamoDB.scan.onFirstCall().returns({
+        AWS.DynamoDB.DocumentClient.scan.onFirstCall().returns({
           promise: () =>
             Promise.resolve().then(() => ({
               Items: [],
@@ -275,7 +275,7 @@ describe('/src/datastoreProvider.js', function() {
             })),
         })
         // @ts-ignore
-        AWS.DynamoDB.scan.onSecondCall().returns({
+        AWS.DynamoDB.DocumentClient.scan.onSecondCall().returns({
           promise: () =>
             Promise.resolve().then(() => ({
               Items: [
@@ -288,7 +288,7 @@ describe('/src/datastoreProvider.js', function() {
         })
         await instance.search(createTestModel1(obj).getModel(), query)
         // @ts-ignore
-        const actual = AWS.DynamoDB.scan.getCalls().length
+        const actual = AWS.DynamoDB.DocumentClient.scan.getCalls().length
         const expected = 2
         assert.equal(actual, expected)
       })

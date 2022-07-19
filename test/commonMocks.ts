@@ -2,6 +2,7 @@ import sinon from 'sinon'
 
 const createAwsMocks = () => {
   const get = sinon.stub().returns({ promise: () => Promise.resolve() })
+  const scan = sinon.stub().returns({ promise: () => Promise.resolve() })
   const put = sinon.stub().returns({ promise: () => Promise.resolve() })
   const deleteObj = sinon.stub().returns({ promise: () => Promise.resolve() })
   const constructor = sinon.stub().returns({ promise: () => Promise.resolve() })
@@ -12,6 +13,9 @@ const createAwsMocks = () => {
     }
     get(...args: any[]) {
       return get(...args)
+    }
+    scan(...args: any[]) {
+      return scan(...args)
     }
     put(...args: any[]) {
       return put(...args)
@@ -28,17 +32,19 @@ const createAwsMocks = () => {
   // @ts-ignore
   DocumentClient.put = put
   // @ts-ignore
+  DocumentClient.scan = scan
+  // @ts-ignore
   DocumentClient.delete = deleteObj
 
   const dynamoConstructor = sinon.stub()
-  const scan = sinon.stub()
+  const scan2 = sinon.stub()
   class DynamoDB {
     public constructor(...args: any[]) {
       dynamoConstructor(...args)
     }
 
     public scan(...args: any[]) {
-      return scan(...args)
+      return scan2(...args)
     }
   }
   // @ts-ignore
@@ -46,7 +52,7 @@ const createAwsMocks = () => {
   // @ts-ignore
   DynamoDB.DocumentClient = DocumentClient
   // @ts-ignore
-  DynamoDB.scan = scan
+  DynamoDB.scan = scan2
   const AWS = {
     DynamoDB,
   }
