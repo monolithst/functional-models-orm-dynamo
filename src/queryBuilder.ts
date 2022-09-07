@@ -159,7 +159,7 @@ const queryBuilder = ({ createUniqueId }:{ createUniqueId?: ((s: any)=>string)} 
     const valueMethod = DATA_TYPE_TO_METHOD[dataType]
     const value = valueMethod(obj.value)
     return merge(acc, {
-      [`:${propKeyToKey[obj.myUniqueId]}`]: { [dataType]: value },
+      [`:${propKeyToKey[obj.myUniqueId]}`]: value,
     })
   }, {})
 

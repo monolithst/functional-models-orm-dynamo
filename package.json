@@ -1,13 +1,13 @@
 {
   "name": "functional-models-orm-dynamo",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "description": "An implmentation of functional-models-orm for dynamodb.",
   "main": "index.js",
   "types": "index.d.ts",
   "scripts": {
     "test": "mocha -r ts-node/register test/**/*.test.ts",
     "test:coverage": "nyc npm run test",
-    "feature-tests": "./node_modules/.bin/cucumber-js -p default",
+    "feature-tests": "./node_modules/.bin/cucumber-js",
     "coverage": "nyc --all --reporter=lcov npm test",
     "build": "tsc -p ./tsconfig.build.json && cp package.json ./dist && cp README.md ./dist",
     "dist": "npm run build && cd dist && npm publish"

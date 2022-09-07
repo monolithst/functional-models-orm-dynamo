@@ -125,7 +125,7 @@ describe('/src/queryBuilder.ts', () => {
       const query = ormQueryBuilder().property('name', 'value').compile()
       const actual = queryBuilder(_nameId())('my-table', query).ExpressionAttributeValues
       const expected = {
-        ':myname': { S: 'value' },
+        ':myname': 'value',
       }
       assert.deepEqual(actual, expected)
     })
@@ -133,7 +133,7 @@ describe('/src/queryBuilder.ts', () => {
       const query = ormQueryBuilder().property('name', null).compile()
       const actual = queryBuilder(_nameId())('my-table', query).ExpressionAttributeValues
       const expected = {
-        ':myname': { S: "" },
+        ':myname': "",
       }
       assert.deepEqual(actual, expected)
     })
@@ -144,8 +144,8 @@ describe('/src/queryBuilder.ts', () => {
         .compile()
       const actual = queryBuilder(_nameId())('my-table', query).ExpressionAttributeValues
       const expected = {
-        ':myname': { S: 'value' },
-        ':myother': { S: "" },
+        ':myname': 'value',
+        ':myother': "",
       }
       assert.deepEqual(actual, expected)
     })
