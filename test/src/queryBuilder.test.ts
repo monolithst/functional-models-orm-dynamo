@@ -5,13 +5,16 @@ import { ormQueryBuilder } from 'functional-models-orm/ormQuery'
 import { EQUALITY_SYMBOLS, ORMType } from 'functional-models-orm/constants'
 import queryBuilder from '../../src/queryBuilder'
 
-const _nameId = () => ({ createUniqueId: (obj: any) => obj.name})
+const _nameId = () => ({ createUniqueId: (obj: any) => obj.name })
 
 describe('/src/queryBuilder.ts', () => {
   describe('#()', () => {
     it('should set TableName to what is passed in', () => {
       const query = ormQueryBuilder().property('name', 'value').compile()
-      const actual = get(queryBuilder(_nameId())('my-table', query), 'TableName')
+      const actual = get(
+        queryBuilder(_nameId())('my-table', query),
+        'TableName'
+      )
       const expected = 'my-table'
       assert.deepEqual(actual, expected)
     })
@@ -24,7 +27,10 @@ describe('/src/queryBuilder.ts', () => {
      */
     it('should TableName to what is passed in', () => {
       const query = ormQueryBuilder().property('name', 'value').compile()
-      const actual = get(queryBuilder(_nameId())('my-table', query), 'TableName')
+      const actual = get(
+        queryBuilder(_nameId())('my-table', query),
+        'TableName'
+      )
       const expected = 'my-table'
       assert.deepEqual(actual, expected)
     })
@@ -35,7 +41,12 @@ describe('/src/queryBuilder.ts', () => {
       assert.deepEqual(actual, expected)
     })
     it('should produce an expected FilterExpression for a single property with a > symbol', () => {
-      const query = ormQueryBuilder().property('name', 5, { type: ORMType.number, equalitySymbol: EQUALITY_SYMBOLS.GT}).compile()
+      const query = ormQueryBuilder()
+        .property('name', 5, {
+          type: ORMType.number,
+          equalitySymbol: EQUALITY_SYMBOLS.GT,
+        })
+        .compile()
       const actual = queryBuilder(_nameId())('my-table', query).FilterExpression
       const expected = '#myname > :myname'
       assert.deepEqual(actual, expected)
@@ -83,10 +94,12 @@ describe('/src/queryBuilder.ts', () => {
         .property('secondname', 'value')
         .compile()
       try {
-        const actual = queryBuilder(_nameId())('my-table', query).FilterExpression
+        const actual = queryBuilder(_nameId())(
+          'my-table',
+          query
+        ).FilterExpression
         throw new Error(`No exception thrown`)
-      } catch {
-      }
+      } catch {}
     })
     it('should throw an exception if two AND are called', () => {
       const query = ormQueryBuilder()
@@ -96,14 +109,19 @@ describe('/src/queryBuilder.ts', () => {
         .property('secondname', 'value')
         .compile()
       try {
-        const actual = queryBuilder(_nameId())('my-table', query).FilterExpression
+        const actual = queryBuilder(_nameId())(
+          'my-table',
+          query
+        ).FilterExpression
         throw new Error(`No exception thrown`)
-      } catch {
-      }
+      } catch {}
     })
     it('should produce an expected ExpressionAttributeNames for a single property when the name has a dash', () => {
       const query = ormQueryBuilder().property('name-name', 'value').compile()
-      const actual = queryBuilder(_nameId())('my-table', query).ExpressionAttributeNames
+      const actual = queryBuilder(_nameId())(
+        'my-table',
+        query
+      ).ExpressionAttributeNames
       const expected = {
         '#mynamename': 'name-name',
       }
@@ -114,7 +132,10 @@ describe('/src/queryBuilder.ts', () => {
         .property('name', 'value')
         .property('description', 'the-description')
         .compile()
-      const actual = queryBuilder(_nameId())('my-table', query).ExpressionAttributeNames
+      const actual = queryBuilder(_nameId())(
+        'my-table',
+        query
+      ).ExpressionAttributeNames
       const expected = {
         '#myname': 'name',
         '#mydescription': 'description',
@@ -123,7 +144,10 @@ describe('/src/queryBuilder.ts', () => {
     })
     it('should produce an expected ExpressionAttributeValues for one property', () => {
       const query = ormQueryBuilder().property('name', 'value').compile()
-      const actual = queryBuilder(_nameId())('my-table', query).ExpressionAttributeValues
+      const actual = queryBuilder(_nameId())(
+        'my-table',
+        query
+      ).ExpressionAttributeValues
       const expected = {
         ':myname': 'value',
       }
@@ -131,9 +155,12 @@ describe('/src/queryBuilder.ts', () => {
     })
     it('should produce an expected ExpressionAttributeValues for one property that has a null value', () => {
       const query = ormQueryBuilder().property('name', null).compile()
-      const actual = queryBuilder(_nameId())('my-table', query).ExpressionAttributeValues
+      const actual = queryBuilder(_nameId())(
+        'my-table',
+        query
+      ).ExpressionAttributeValues
       const expected = {
-        ':myname': "",
+        ':myname': '',
       }
       assert.deepEqual(actual, expected)
     })
@@ -142,10 +169,13 @@ describe('/src/queryBuilder.ts', () => {
         .property('name', 'value')
         .property('other', null)
         .compile()
-      const actual = queryBuilder(_nameId())('my-table', query).ExpressionAttributeValues
+      const actual = queryBuilder(_nameId())(
+        'my-table',
+        query
+      ).ExpressionAttributeValues
       const expected = {
         ':myname': 'value',
-        ':myother': "",
+        ':myother': '',
       }
       assert.deepEqual(actual, expected)
     })

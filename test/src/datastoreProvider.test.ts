@@ -1,11 +1,13 @@
 import { assert } from 'chai'
 import sinon from 'sinon'
 import proxyquire from 'proxyquire'
-import { Model, ModelInstance } from 'functional-models/interfaces'
+import { Model, FunctionalModel } from 'functional-models/interfaces'
+import { OrmModel, OrmModelInstance } from 'functional-models-orm/interfaces'
 import { ormQueryBuilder } from 'functional-models-orm/ormQuery'
-import { createAwsMocks, createDynamoClient } from '../commonMocks'
+import { createAws3MockClient } from '../commonMocks'
+import createDatastoreProvider from '../../src/datastoreProvider'
 
-const createTestModel1 = ({ id, name }:{id: string, name: string}) => {
+const createTestModel1 = ({ id, name }: { id: string; name: string }) => {
   return {
     get: {
       name: () => name,
@@ -18,39 +20,24 @@ const createTestModel1 = ({ id, name }:{id: string, name: string}) => {
       return {
         getName: () => 'TestModel1',
         getPrimaryKeyName: () => 'id',
-      } as Model<any>
-    }
-  } as unknown as ModelInstance<any>
+      } as OrmModel<any>
+    },
+  } as unknown as OrmModelInstance<FunctionalModel, OrmModel<FunctionalModel>>
 }
 
-const createTestModel2 = ({ notId, name }: any) => ({
-  get: {
-    notId: () => notId,
-    name: () => name,
-  },
-  toObj: () => Promise.resolve({ notId, name }),
-  getPrimaryKey: () => notId,
-  getModel: () => ({
-    getName: () => 'TestModel1',
-    getPrimaryKeyName: () => 'notId',
-  }),
-}) as unknown as ModelInstance<any>
-
-const setupMocks = () => {
-  const AWS = createAwsMocks()
-  const dynamoClient = createDynamoClient()
-  const datastoreProvider = proxyquire('../../src/datastoreProvider', {
-    './dynamoClient': {
-      default: dynamoClient,
-    }
-  })
-
-  return {
-    datastoreProvider: datastoreProvider.default,
-    dynamoClient,
-    AWS,
-  }
-}
+const createTestModel2 = ({ notId, name }: any) =>
+  ({
+    get: {
+      notId: () => notId,
+      name: () => name,
+    },
+    toObj: () => Promise.resolve({ notId, name }),
+    getPrimaryKey: () => notId,
+    getModel: () => ({
+      getName: () => 'TestModel1',
+      getPrimaryKeyName: () => 'notId',
+    }),
+  }) as unknown as OrmModelInstance<FunctionalModel, OrmModel<FunctionalModel>>
 
 const _createDynamoStringResult = (key: string, value: string) => {
   return {
@@ -70,70 +57,100 @@ const _createDynamoNullResult = (key: string) => {
   }
 }
 
-describe('/src/datastoreProvider.js', function() {
+describe('/src/datastoreProvider.ts', function () {
   this.timeout(20000)
   describe('#()', () => {
     it('should not throw an exception with basic arguments', () => {
-      const { datastoreProvider, AWS } = setupMocks()
+      const aws3 = createAws3MockClient()
+      const dynamoOptions = { region: 'fake-region' }
       assert.doesNotThrow(() => {
-        const instance = datastoreProvider({AWS})
+        const datastoreProvider = createDatastoreProvider({
+          aws3,
+          dynamoOptions,
+        })
       })
     })
     it('should have a "search" function', () => {
-      const { datastoreProvider, AWS } = setupMocks()
-      const instance = datastoreProvider({AWS})
+      const aws3 = createAws3MockClient()
+      const dynamoOptions = { region: 'fake-region' }
+      const instance = createDatastoreProvider({ aws3, dynamoOptions })
       assert.isFunction(instance.search)
     })
     it('should have a "retrieve" function', () => {
-      const { datastoreProvider, AWS } = setupMocks()
-      const instance = datastoreProvider({AWS})
+      const aws3 = createAws3MockClient()
+      const dynamoOptions = { region: 'fake-region' }
+      const instance = createDatastoreProvider({ aws3, dynamoOptions })
       assert.isFunction(instance.retrieve)
     })
     it('should have a "save" function', () => {
-      const { datastoreProvider, AWS } = setupMocks()
-      const instance = datastoreProvider({AWS})
+      const aws3 = createAws3MockClient()
+      const dynamoOptions = { region: 'fake-region' }
+      const instance = createDatastoreProvider({ aws3, dynamoOptions })
       assert.isFunction(instance.save)
     })
     it('should have a "delete" function', () => {
-      const { datastoreProvider, AWS } = setupMocks()
-      const instance = datastoreProvider({ AWS })
+      const aws3 = createAws3MockClient()
+      const dynamoOptions = { region: 'fake-region' }
+      const instance = createDatastoreProvider({ aws3, dynamoOptions })
       assert.isFunction(instance.delete)
     })
     describe('#search()', () => {
-      it('should call dynamo.scan once when LastEvaluatedKey is empty', async () => {
-        const { datastoreProvider, AWS } = setupMocks()
-        const instance = datastoreProvider({AWS})
+      it('should pass createUniqueId into queryBuilder', async () => {
+        const aws3 = createAws3MockClient()
+        const dynamoOptions = { region: 'fake-region' }
+        const myFunc = () => 'fake-id'
+        const instance = createDatastoreProvider({
+          aws3,
+          dynamoOptions,
+          createUniqueId: myFunc,
+        })
         const obj = { id: 'my-id', name: 'my-name' }
         const query = ormQueryBuilder().property('name', 'my-name').compile()
         // @ts-ignore
-        AWS.DynamoDB.DocumentClient.scan.onFirstCall().returns({
-          promise: () =>
-            Promise.resolve().then(() => ({
-              Items: [],
-              LastEvaluatedKey: null,
-            })),
+        aws3.DynamoDBDocumentClient.sendSinon.onFirstCall().resolves({
+          Items: [],
+          LastEvaluatedKey: null,
+        })
+        await instance.search(createTestModel1(obj).getModel(), query)
+        const actual = aws3.ScanCommand.sinon.getCall(0).args[0]
+        const expected = {
+          TableName: 'testmodel1',
+          FilterExpression: '#myfakeid = :myfakeid',
+          ExpressionAttributeNames: { '#myfakeid': 'name' },
+          ExpressionAttributeValues: { ':myfakeid': 'my-name' },
+        }
+        assert.deepInclude(actual, expected)
+      })
+      it('should call dynamo.scan once when LastEvaluatedKey is empty', async () => {
+        const aws3 = createAws3MockClient()
+        const dynamoOptions = { region: 'fake-region' }
+        const instance = createDatastoreProvider({ aws3, dynamoOptions })
+        const obj = { id: 'my-id', name: 'my-name' }
+        const query = ormQueryBuilder().property('name', 'my-name').compile()
+        // @ts-ignore
+        aws3.DynamoDBDocumentClient.sendSinon.onFirstCall().resolves({
+          Items: [],
+          LastEvaluatedKey: null,
         })
         await instance.search(createTestModel1(obj).getModel(), query)
         // @ts-ignore
-        sinon.assert.calledOnce(AWS.DynamoDB.DocumentClient.scan)
+        sinon.assert.calledOnce(aws3.ScanCommand.sinon)
       })
       it('should be able to process a string value result', async () => {
-        const { datastoreProvider, AWS } = setupMocks()
-        const instance = datastoreProvider({AWS})
+        const aws3 = createAws3MockClient()
+        const dynamoOptions = { region: 'fake-region' }
+        const instance = createDatastoreProvider({ aws3, dynamoOptions })
         const obj = { id: 'my-id', name: 'my-name' }
         const query = ormQueryBuilder().property('name', 'my-name').compile()
         // @ts-ignore
-        AWS.DynamoDB.DocumentClient.scan.onFirstCall().returns({
-          promise: () =>
-            Promise.resolve().then(() => ({
-              Items: [
-                {
-                  ..._createDynamoStringResult('id', 'my-id'),
-                  ..._createDynamoStringResult('name', 'my-name'),
-                },
-              ],
-              LastEvaluatedKey: null,
-            })),
+        aws3.DynamoDBDocumentClient.sendSinon.onFirstCall().resolves({
+          Items: [
+            {
+              ..._createDynamoStringResult('id', 'my-id'),
+              ..._createDynamoStringResult('name', 'my-name'),
+            },
+          ],
+          LastEvaluatedKey: null,
         })
         const actual = await instance.search(
           createTestModel1(obj).getModel(),
@@ -146,22 +163,20 @@ describe('/src/datastoreProvider.js', function() {
         assert.deepEqual(actual, expected)
       })
       it('should be able to process a null value results', async () => {
-        const { datastoreProvider, AWS } = setupMocks()
-        const instance = datastoreProvider({AWS})
+        const aws3 = createAws3MockClient()
+        const dynamoOptions = { region: 'fake-region' }
+        const instance = createDatastoreProvider({ aws3, dynamoOptions })
         const obj = { id: 'my-id', name: 'my-name' }
         const query = ormQueryBuilder().property('name', null).compile()
         // @ts-ignore
-        AWS.DynamoDB.DocumentClient.scan.onFirstCall().returns({
-          promise: () =>
-            Promise.resolve().then(() => ({
-              Items: [
-                {
-                  ..._createDynamoStringResult('id', 'my-id'),
-                  ..._createDynamoNullResult('name'),
-                },
-              ],
-              LastEvaluatedKey: null,
-            })),
+        aws3.DynamoDBDocumentClient.sendSinon.onFirstCall().resolves({
+          Items: [
+            {
+              ..._createDynamoStringResult('id', 'my-id'),
+              ..._createDynamoNullResult('name'),
+            },
+          ],
+          LastEvaluatedKey: null,
         })
         const actual = await instance.search(
           createTestModel1(obj).getModel(),
@@ -174,22 +189,20 @@ describe('/src/datastoreProvider.js', function() {
         assert.deepEqual(actual, expected)
       })
       it('should be able to process an array of strings', async () => {
-        const { datastoreProvider, AWS } = setupMocks()
-        const instance = datastoreProvider({AWS})
+        const aws3 = createAws3MockClient()
+        const dynamoOptions = { region: 'fake-region' }
+        const instance = createDatastoreProvider({ aws3, dynamoOptions })
         const obj = { id: 'my-id', name: 'my-name' }
         const query = ormQueryBuilder().property('names', 'my-name').compile()
         // @ts-ignore
-        AWS.DynamoDB.DocumentClient.scan.onFirstCall().returns({
-          promise: () =>
-            Promise.resolve().then(() => ({
-              Items: [
-                {
-                  ..._createDynamoStringResult('id', 'my-id'),
-                  ..._createDynamoStingArrayResult('names', ['a', 'b']),
-                },
-              ],
-              LastEvaluatedKey: null,
-            })),
+        aws3.DynamoDBDocumentClient.sendSinon.onFirstCall().resolves({
+          Items: [
+            {
+              ..._createDynamoStringResult('id', 'my-id'),
+              ..._createDynamoStingArrayResult('names', ['a', 'b']),
+            },
+          ],
+          LastEvaluatedKey: null,
         })
         const actual = await instance.search(
           createTestModel1(obj).getModel(),
@@ -202,26 +215,24 @@ describe('/src/datastoreProvider.js', function() {
         assert.deepEqual(actual, expected)
       })
       it('should return only 1 object if query has "take:1" even if there are two results from dynamo', async () => {
-        const { datastoreProvider, AWS } = setupMocks()
-        const instance = datastoreProvider({AWS})
+        const aws3 = createAws3MockClient()
+        const dynamoOptions = { region: 'fake-region' }
+        const instance = createDatastoreProvider({ aws3, dynamoOptions })
         const obj = { id: 'my-id', name: 'my-name' }
         const query = ormQueryBuilder().property('name', null).take(1).compile()
         // @ts-ignore
-        AWS.DynamoDB.DocumentClient.scan.onFirstCall().returns({
-          promise: () =>
-            Promise.resolve().then(() => ({
-              Items: [
-                {
-                  ..._createDynamoStringResult('id', 'my-id'),
-                  ..._createDynamoStringResult('name', 'name1'),
-                },
-                {
-                  ..._createDynamoStringResult('id2', 'my-id'),
-                  ..._createDynamoStringResult('name', 'name2'),
-                },
-              ],
-              LastEvaluatedKey: null,
-            })),
+        aws3.DynamoDBDocumentClient.sendSinon.onFirstCall().resolves({
+          Items: [
+            {
+              ..._createDynamoStringResult('id', 'my-id'),
+              ..._createDynamoStringResult('name', 'name1'),
+            },
+            {
+              ..._createDynamoStringResult('id2', 'my-id'),
+              ..._createDynamoStringResult('name', 'name2'),
+            },
+          ],
+          LastEvaluatedKey: null,
         })
         const actual = await instance.search(
           createTestModel1(obj).getModel(),
@@ -234,112 +245,122 @@ describe('/src/datastoreProvider.js', function() {
         assert.deepEqual(actual, expected)
       })
       it('should call dynamo.scan twice when LastEvaluatedKey is empty the second time', async () => {
-        const { datastoreProvider, AWS } = setupMocks()
-        const instance = datastoreProvider({AWS})
+        const aws3 = createAws3MockClient()
+        const dynamoOptions = { region: 'fake-region' }
+        const instance = createDatastoreProvider({ aws3, dynamoOptions })
         const obj = { id: 'my-id', name: 'my-name' }
         const query = ormQueryBuilder().property('name', 'my-name').compile()
         // @ts-ignore
-        AWS.DynamoDB.DocumentClient.scan.onFirstCall().returns({
-          promise: () =>
-            Promise.resolve().then(() => ({
-              Items: [],
-              LastEvaluatedKey: 'try-again',
-            })),
+        aws3.DynamoDBDocumentClient.sendSinon.onFirstCall().resolves({
+          Items: [],
+          LastEvaluatedKey: 'try-again',
         })
         // @ts-ignore
-        AWS.DynamoDB.DocumentClient.scan.onSecondCall().returns({
-          promise: () =>
-            Promise.resolve().then(() => ({
-              Items: [{ something: 'returned' }],
-              LastEvaluatedKey: null,
-            })),
+        aws3.ScanCommand.sinon.onSecondCall().resolves({
+          Items: [{ something: 'returned' }],
+          LastEvaluatedKey: null,
         })
         await instance.search(createTestModel1(obj).getModel(), query)
         // @ts-ignore
-        sinon.assert.calledTwice(AWS.DynamoDB.DocumentClient.scan)
+        sinon.assert.calledTwice(aws3.ScanCommand.sinon)
       })
       it('should call dynamo.scan twice when LastEvaluatedKey has a value the second time but take:2 and 3 items are returned', async () => {
-        const { datastoreProvider, AWS } = setupMocks()
-        const instance = datastoreProvider({AWS})
+        const aws3 = createAws3MockClient()
+        const dynamoOptions = { region: 'fake-region' }
+        const instance = createDatastoreProvider({ aws3, dynamoOptions })
         const obj = { id: 'my-id', name: 'my-name' }
         const query = ormQueryBuilder()
           .property('name', 'my-name')
           .take(2)
           .compile()
         // @ts-ignore
-        AWS.DynamoDB.DocumentClient.scan.onFirstCall().returns({
-          promise: () =>
-            Promise.resolve().then(() => ({
-              Items: [],
-              LastEvaluatedKey: 'try-again',
-            })),
+        aws3.DynamoDBDocumentClient.sendSinon.onFirstCall().resolves({
+          Items: [],
+          LastEvaluatedKey: 'try-again',
         })
         // @ts-ignore
-        AWS.DynamoDB.DocumentClient.scan.onSecondCall().returns({
-          promise: () =>
-            Promise.resolve().then(() => ({
-              Items: [
-                { something: 'returned' },
-                { something2: 'returned2' },
-                { something3: 'returned3' },
-              ],
-              LastEvaluatedKey: 'another-value',
-            })),
+        aws3.DynamoDBDocumentClient.sendSinon.onSecondCall().resolves({
+          Items: [
+            { something: 'returned' },
+            { something2: 'returned2' },
+            { something3: 'returned3' },
+          ],
+          LastEvaluatedKey: 'another-value',
         })
         await instance.search(createTestModel1(obj).getModel(), query)
         // @ts-ignore
-        const actual = AWS.DynamoDB.DocumentClient.scan.getCalls().length
+        const actual = aws3.DynamoDBDocumentClient.sendSinon.getCalls().length
         const expected = 2
         assert.equal(actual, expected)
       })
     })
     describe('#retrieve()', () => {
-      it('should pass the correct params to dynamoClient.get', async () => {
-        const { datastoreProvider, dynamoClient, AWS } = setupMocks()
-        const instance = datastoreProvider({AWS})
+      it('should pass the correct table name into GetCommand', async () => {
+        const aws3 = createAws3MockClient()
+        const dynamoOptions = { region: 'fake-region' }
+        const instance = createDatastoreProvider({
+          aws3,
+          dynamoOptions,
+          getTableNameForModel: () => 'FakeTable',
+        })
         const modelInstance = createTestModel1({ id: 'my-id', name: 'my-name' })
         await instance.retrieve(modelInstance.getModel(), 'my-id')
-        const actual = dynamoClient.get.getCall(0).args[0]
-        const expected = { key: { id: 'my-id' } }
+        const actual = aws3.GetCommand.sinon.getCall(0).args[0]
+        const expected = { Key: { id: 'my-id' }, TableName: 'FakeTable' }
+        assert.deepEqual(actual, expected)
+      })
+      it('should pass the correct params to GetCommand', async () => {
+        const aws3 = createAws3MockClient()
+        const dynamoOptions = { region: 'fake-region' }
+        const instance = createDatastoreProvider({ aws3, dynamoOptions })
+        const modelInstance = createTestModel1({ id: 'my-id', name: 'my-name' })
+        await instance.retrieve(modelInstance.getModel(), 'my-id')
+        const actual = aws3.GetCommand.sinon.getCall(0).args[0]
+        const expected = { Key: { id: 'my-id' }, TableName: 'testmodel1' }
         assert.deepEqual(actual, expected)
       })
     })
     describe('#delete()', () => {
-      it('should pass the correct params to dynamoClient.delete', async () => {
-        const { datastoreProvider, dynamoClient, AWS } = setupMocks()
-        const instance = datastoreProvider({AWS})
+      it('should pass the correct params to DeleteCommand', async () => {
+        const aws3 = createAws3MockClient()
+        const dynamoOptions = { region: 'fake-region' }
+        const instance = createDatastoreProvider({ aws3, dynamoOptions })
         const modelInstance = createTestModel1({ id: 'my-id', name: 'my-name' })
         await instance.delete(modelInstance)
-        const actual = dynamoClient.delete.getCall(0).args[0]
-        const expected = { key: { id: 'my-id' } }
+        const actual = aws3.DeleteCommand.sinon.getCall(0).args[0]
+        const expected = { Key: { id: 'my-id' }, TableName: 'testmodel1' }
         assert.deepEqual(actual, expected)
       })
     })
     describe('#save()', () => {
-      it('should pass results of modelInstance.functions.toObj() to dynamoClient.update', async () => {
-        const { datastoreProvider, dynamoClient, AWS } = setupMocks()
-        const instance = datastoreProvider({AWS})
+      it('should pass results of modelInstance.functions.toObj() to PutCommand', async () => {
+        const aws3 = createAws3MockClient()
+        const dynamoOptions = { region: 'fake-region' }
+        const instance = createDatastoreProvider({ aws3, dynamoOptions })
         const modelInstance = createTestModel1({ id: 'my-id', name: 'my-name' })
         await instance.save(modelInstance)
-        const actual = dynamoClient.update.getCall(0).args[0]
+        const actual = aws3.PutCommand.sinon.getCall(0).args[0]
         const expected = {
-          key: { id: 'my-id' },
-          item: { id: 'my-id', name: 'my-name' },
+          Key: { id: 'my-id' },
+          Item: { id: 'my-id', name: 'my-name' },
+          TableName: 'testmodel1',
         }
         assert.deepEqual(actual, expected)
       })
-      it('should pass the correct primary key when changed by the model to dynamoClient.update', async () => {
-        const { datastoreProvider, dynamoClient, AWS } = setupMocks()
-        const instance = datastoreProvider({ AWS })
+      it('should pass the correct primary key when changed by the model to PutCommand', async () => {
+        const aws3 = createAws3MockClient()
+        const dynamoOptions = { region: 'fake-region' }
+        const instance = createDatastoreProvider({ aws3, dynamoOptions })
         const modelInstance = createTestModel2({
           notId: 'my-id',
           name: 'my-name',
         })
         await instance.save(modelInstance)
-        const actual = dynamoClient.update.getCall(0).args[0]
+        const actual = aws3.PutCommand.sinon.getCall(0).args[0]
         const expected = {
-          key: { notId: 'my-id' },
-          item: { notId: 'my-id', name: 'my-name' },
+          Key: { notId: 'my-id' },
+          Item: { notId: 'my-id', name: 'my-name' },
+          TableName: 'testmodel1',
         }
         assert.deepEqual(actual, expected)
       })

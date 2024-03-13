@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "target": "es5",
+    "lib": ["es2021", "dom", "es2015"],
+    "module": "commonjs",
+    //"moduleResolution": "node16",
+    "rootDirs": ["./src", "./test"],
+    "allowJs": true,
+    "declaration": true,
+    "sourceMap": true,
+    "outDir": "./dist",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "noImplicitAny": false,
+    "skipLibCheck": true
+  },
+  "include": ["./test"],
+  "exclude": [
+    "src/index.ts",
+    "src/index.js",
+    "src/index.d.ts",
+    "node_modules",
+    "dist",
+    "features",
+    "container",
+    "features"
+  ]
+}
+

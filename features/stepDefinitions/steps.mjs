@@ -1,25 +1,34 @@
-const assert = require('chai').assert
-const { Before, After, Given, When, Then } = require('cucumber')
-const { TextProperty, Model, UniqueId } = require('functional-models')
-const { ormQuery, orm } = require('functional-models-orm')
-const createDatastoreProvider = require('../../dist/datastoreProvider').default
+import { assert } from 'chai'
+import { Before, After, Given, When, Then } from '@cucumber/cucumber'
+import functionalModels from 'functional-models'
+import { ormQuery, orm } from 'functional-models-orm'
+import createDatastoreProvider from '../../dist/datastoreProvider.js'
+import * as dynamo from '@aws-sdk/client-dynamodb'
+import * as libDynamo from '@aws-sdk/lib-dynamodb'
 
-const createDynamoDatastoreProvider = (context) => {
+const { TextProperty, Model, UniqueId } = functionalModels
+
+const createDynamoDatastoreProvider = context => {
   if (!context.parameters.testTable) {
-    throw new Error(`Must include a testing table that exists in the world parameters.`)
+    throw new Error(
+      `Must include a testing table that exists in the world parameters.`
+    )
   }
   if (!context.parameters.awsRegion) {
     throw new Error(`Must include awsRegion in the world parameters.`)
   }
-  this.table = context.parameters.testTable
-  return createDatastoreProvider({
-    AWS: require('aws-sdk'),
+  context.table = context.parameters.testTable
+  return createDatastoreProvider.default({
+    aws3: {
+      ...dynamo,
+      ...libDynamo,
+    },
     dynamoOptions: {
-      region: context.parameters.awsRegion
+      region: context.parameters.awsRegion,
     },
     getTableNameForModel: () => {
-      return `${this.table}`
-    }
+      return `${context.table}`
+    },
   })
 }
 
@@ -33,7 +42,7 @@ const MODELS = {
     {
       properties: {
         name: TextProperty(),
-      }
+      },
     },
   ],
 }
@@ -44,28 +53,36 @@ const MODEL_DATA = {
     name: 'test-name',
   },
   SearchResult1: {
-    instances: [{
-      id: 'test-id',
-      name: 'test-name',
-    }],
-    page: null 
+    instances: [
+      {
+        id: 'test-id',
+        name: 'test-name',
+      },
+    ],
+    page: null,
   },
   EmptyModel: {},
-  'undefined': undefined,
+  undefined: undefined,
 }
 
 const QUERIES = {
-  SearchQuery1: ormQuery.ormQueryBuilder() 
+  SearchQuery1: ormQuery
+    .ormQueryBuilder()
     .property('name', 'test-name')
     .take(1)
     .compile(),
 }
 
 const _emptyDatastoreProvider = async (model, datastoreProvider) => {
-  await datastoreProvider.search(model, ormQuery.ormQueryBuilder().compile())
-    .then(async obj => Promise.all(obj.instances.map(x => {
-      return model.create(x).delete()
-    })))
+  await datastoreProvider
+    .search(model, ormQuery.ormQueryBuilder().compile())
+    .then(async obj =>
+      Promise.all(
+        obj.instances.map(x => {
+          return model.create(x).delete()
+        })
+      )
+    )
 }
 
 Given('orm using the {word}', function (store) {
@@ -78,7 +95,7 @@ Given('orm using the {word}', function (store) {
   this.datastoreProvider = store
 })
 
-Given('the datastore is emptied of models', function() {
+Given('the datastore is emptied of models', function () {
   return _emptyDatastoreProvider(this.model, this.datastoreProvider)
 })
 
@@ -105,13 +122,16 @@ When('instances of the model are created with {word}', function (dataKey) {
   this.instances = MODEL_DATA[dataKey].map(this.model.create)
 })
 
-When('an instance of the model is created with {word}', async function (dataKey) {
-  const data = MODEL_DATA[dataKey]
-  if (!data) {
-    throw new Error(`${dataKey} did not result in a data object.`)
+When(
+  'an instance of the model is created with {word}',
+  async function (dataKey) {
+    const data = MODEL_DATA[dataKey]
+    if (!data) {
+      throw new Error(`${dataKey} did not result in a data object.`)
+    }
+    this.modelInstance = this.model.create(data)
   }
-  this.modelInstance = this.model.create(data)
-})
+)
 
 When('save is called on the instances', function () {
   return Promise.all(this.instances.map(x => x.save()))
@@ -122,9 +142,7 @@ When('save is called on the model', function () {
 })
 
 When('delete is called on the model', function () {
-  return this.modelInstance
-    .delete()
-    .then(x => (this.deleteResult = x))
+  return this.modelInstance.delete().then(x => (this.deleteResult = x))
 })
 
 When("the datastore's retrieve is called with values", function (table) {
@@ -144,7 +162,6 @@ When("the datastore's delete is called with modelInstance", function () {
 When("the datastore's search is called with {word}", function (key) {
   const query = QUERIES[key]
   return this.datastoreProvider.search(this.model, query).then(async obj => {
-    console.log(obj)
     this.result = obj
   })
 })

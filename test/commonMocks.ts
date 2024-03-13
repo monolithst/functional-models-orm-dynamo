@@ -1,82 +1,62 @@
 import sinon from 'sinon'
 
-const createAwsMocks = () => {
-  const get = sinon.stub().returns({ promise: () => Promise.resolve() })
-  const scan = sinon.stub().returns({ promise: () => Promise.resolve() })
-  const put = sinon.stub().returns({ promise: () => Promise.resolve() })
-  const deleteObj = sinon.stub().returns({ promise: () => Promise.resolve() })
-  const constructor = sinon.stub().returns({ promise: () => Promise.resolve() })
-
-  class DocumentClient {
-    public constructor(...args: any[]) {
-      constructor(...args)
+const createAws3MockClient = () => {
+  const dynamoDbClient = sinon.stub()
+  const sendSinon = sinon.stub().resolves({ Items: [] })
+  class DynamoDBClient {
+    constructor(...args: any) {
+      dynamoDbClient(...args)
     }
-    get(...args: any[]) {
-      return get(...args)
+    public send(...args: any) {
+      return sendSinon(...args)
     }
-    scan(...args: any[]) {
-      return scan(...args)
+    static sinon = dynamoDbClient
+    static sendSinon = sendSinon
+  }
+  const dynamoDbDocumentClientSend = sinon.stub().resolves({ Items: [] })
+  const DynamoDBDocumentClient = {
+    from: sinon.stub().returns({
+      send: dynamoDbDocumentClientSend,
+    }),
+    sendSinon: dynamoDbDocumentClientSend,
+  }
+  const putCommand = sinon.stub()
+  class PutCommand {
+    constructor(...args: any) {
+      putCommand(...args)
     }
-    put(...args: any[]) {
-      return put(...args)
+    static sinon = putCommand
+  }
+  const getCommand = sinon.stub()
+  class GetCommand {
+    constructor(...args: any) {
+      getCommand(...args)
     }
-    delete(...args: any[]) {
-      return deleteObj(...args)
+    static sinon = getCommand
+  }
+  const deleteCommand = sinon.stub()
+  class DeleteCommand {
+    constructor(...args: any) {
+      deleteCommand(...args)
     }
+    static sinon = deleteCommand
+  }
+  const scanCommand = sinon.stub()
+  class ScanCommand {
+    constructor(...args: any) {
+      scanCommand(...args)
+    }
+    static sinon = scanCommand
   }
 
-  // @ts-ignore
-  DocumentClient.constructor = constructor
-  // @ts-ignore
-  DocumentClient.get = get
-  // @ts-ignore
-  DocumentClient.put = put
-  // @ts-ignore
-  DocumentClient.scan = scan
-  // @ts-ignore
-  DocumentClient.delete = deleteObj
-
-  const dynamoConstructor = sinon.stub()
-  const scan2 = sinon.stub()
-  class DynamoDB {
-    public constructor(...args: any[]) {
-      dynamoConstructor(...args)
-    }
-
-    public scan(...args: any[]) {
-      return scan2(...args)
-    }
+  return {
+    DynamoDBClient,
+    DynamoDBDocumentClient,
+    PutCommand,
+    GetCommand,
+    DeleteCommand,
+    ScanCommand,
   }
-  // @ts-ignore
-  DynamoDB.theConstructor = dynamoConstructor
-  // @ts-ignore
-  DynamoDB.DocumentClient = DocumentClient
-  // @ts-ignore
-  DynamoDB.scan = scan2
-  const AWS = {
-    DynamoDB,
-  }
-  return AWS
 }
 
-const createDynamoClient = () => {
-  const get = sinon.stub().resolves({})
-  const update = sinon.stub().resolves({})
-  const deleteObj = sinon.stub().resolves({})
-  const client = () => {
-    return {
-      delete: deleteObj,
-      get,
-      update,
-    }
-  }
-  client.get = get
-  client.update = update
-  client.delete = deleteObj
-  return client
-}
-
-export {
-  createAwsMocks,
-  createDynamoClient,
-}
+export { createAws3MockClient }
