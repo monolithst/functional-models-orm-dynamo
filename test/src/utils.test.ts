@@ -3,7 +3,7 @@ import { assert } from 'chai'
 import sinon from 'sinon'
 import { getTableNameForModel } from '../../src/utils'
 
-const buildModel = (name: string) : Model<any> => {
+const buildModel = (name: string): Model<any> => {
   return {
     getName: () => name,
   } as Model<any>
