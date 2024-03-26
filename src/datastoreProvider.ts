@@ -10,10 +10,15 @@ import {
   DatastoreProvider,
   OrmModelInstance,
 } from 'functional-models-orm/interfaces'
-import { getTableNameForModel as defaultTableModelName } from './utils'
+import {
+  getTableNameForModel as defaultTableModelName,
+  splitArrayIntoArraysOfMaxSize,
+} from './utils'
 import queryBuilder from './queryBuilder'
 import { SCAN_RETURN_THRESHOLD } from './constants'
 import { OrmModel } from 'functional-models-orm/interfaces'
+
+const MAX_BATCH_SIZE = 25
 
 type DatastoreProviderInputs = {
   aws3: Aws3Client
@@ -181,12 +186,21 @@ const dynamoDatastoreProvider = ({
         },
         Promise.resolve([] as any)
       )
-      const command = new aws3.BatchWriteCommand({
-        RequestItems: {
-          [tableName]: requestItems,
-        },
-      })
-      return docClient.send(command).then(() => undefined)
+      const batches = splitArrayIntoArraysOfMaxSize(
+        requestItems,
+        MAX_BATCH_SIZE
+      )
+      return batches
+        .reduce(async (accP, batch) => {
+          await accP
+          const command = new aws3.BatchWriteCommand({
+            RequestItems: {
+              [tableName]: batch,
+            },
+          })
+          return docClient.send(command)
+        }, Promise.resolve())
+        .then(() => undefined)
     })
   }
 
