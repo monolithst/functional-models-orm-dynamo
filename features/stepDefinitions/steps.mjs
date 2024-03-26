@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto'
 import { assert } from 'chai'
 import { Before, After, Given, When, Then } from '@cucumber/cucumber'
 import functionalModels from 'functional-models'
@@ -48,11 +49,15 @@ const MODELS = {
 }
 
 const MODEL_DATA = {
-  ModelData1: {
+  ModelData1: () => ({
     id: 'test-id',
     name: 'test-name',
-  },
-  SearchResult1: {
+  }),
+  BulkModelData1: () => ({
+    id: randomUUID(),
+    name: 'test-me',
+  }),
+  SearchResult1: () => ({
     instances: [
       {
         id: 'test-id',
@@ -60,9 +65,9 @@ const MODEL_DATA = {
       },
     ],
     page: null,
-  },
-  EmptyModel: {},
-  undefined: undefined,
+  }),
+  EmptyModel: () => ({}),
+  undefined: () => undefined,
 }
 
 const QUERIES = {
@@ -70,6 +75,10 @@ const QUERIES = {
     .ormQueryBuilder()
     .property('name', 'test-name')
     .take(1)
+    .compile(),
+  BulkSearchQuery1: ormQuery
+    .ormQueryBuilder()
+    //.property('name', 'test-me')
     .compile(),
 }
 
@@ -116,16 +125,16 @@ Given('the ormQueryBuilder is used to make {word}', function (queryKey) {
 })
 
 When('instances of the model are created with {word}', function (dataKey) {
-  if (!MODEL_DATA[dataKey]) {
+  if (!MODEL_DATA[dataKey]()) {
     throw new Error(`${dataKey} did not result in data.`)
   }
-  this.instances = MODEL_DATA[dataKey].map(this.model.create)
+  this.instances = MODEL_DATA[dataKey]().map(this.model.create)
 })
 
 When(
   'an instance of the model is created with {word}',
   async function (dataKey) {
-    const data = MODEL_DATA[dataKey]
+    const data = MODEL_DATA[dataKey]()
     if (!data) {
       throw new Error(`${dataKey} did not result in a data object.`)
     }
@@ -171,10 +180,63 @@ When('search is called on the Model using the query', function () {
 })
 
 Then('the result matches {word}', function (dataKey) {
-  const data = MODEL_DATA[dataKey]
+  const data = MODEL_DATA[dataKey]()
   assert.deepEqual(this.result, data)
 })
 
 Then('{int} search results are found', function (count) {
-  assert.equal(this.searchResults.instances.length, count)
+  assert.equal(this.result.instances.length, count)
 })
+
+When(
+  '{int} instances of the model are created with {word}',
+  function (count, key) {
+    this.instances = [...new Array(count)]
+      .map(MODEL_DATA[key])
+      .map(this.model.create)
+  }
+)
+
+When(/^bulkInsert is called on the model$/, function () {
+  this.model.bulkInsert(this.instances)
+})
+When(/^we want (\d+) seconds$/, async function (seconds) {
+  await new Promise(r => {
+    setTimeout(r, seconds * 1000)
+  })
+})
+
+const _pollSearchCount = async (
+  startTime,
+  maxMilliseconds,
+  model,
+  query,
+  count
+) => {
+  const now = new Date()
+  const diff = now.getTime() - startTime.getTime()
+  if (diff > maxMilliseconds) {
+    throw new Error(`Max seconds reached: ${maxMilliseconds / 1000}`)
+  }
+  const result = await model.search(query)
+  if (result.instances.length === count) {
+    return
+  }
+  return _pollSearchCount(startTime, maxMilliseconds, model, query, count)
+}
+
+When(
+  'we poll for {int} seconds for {int} results with {word}',
+  { timeout: 10 * 60 * 1000 },
+  async function (seconds, count, queryKey) {
+    const query = QUERIES[queryKey]
+    const maxSeconds = count + 3
+    await _pollSearchCount(
+      new Date(),
+      maxSeconds * 1000,
+      this.model,
+      query,
+      count
+    )
+  }
+)

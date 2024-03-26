@@ -49,6 +49,14 @@ const createAws3MockClient = () => {
     static sinon = scanCommand
   }
 
+  const batchWriteCommand = sinon.stub()
+  class BatchWriteCommand {
+    constructor(...args: any) {
+      batchWriteCommand(...args)
+    }
+    static sinon = batchWriteCommand
+  }
+
   return {
     DynamoDBClient,
     DynamoDBDocumentClient,
@@ -56,6 +64,7 @@ const createAws3MockClient = () => {
     GetCommand,
     DeleteCommand,
     ScanCommand,
+    BatchWriteCommand,
   }
 }
 

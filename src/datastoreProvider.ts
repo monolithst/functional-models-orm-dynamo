@@ -5,10 +5,15 @@ import {
   ModelInstance,
   PrimaryKeyType,
 } from 'functional-models/interfaces'
-import { OrmQuery, DatastoreProvider } from 'functional-models-orm/interfaces'
+import {
+  OrmQuery,
+  DatastoreProvider,
+  OrmModelInstance,
+} from 'functional-models-orm/interfaces'
 import { getTableNameForModel as defaultTableModelName } from './utils'
 import queryBuilder from './queryBuilder'
 import { SCAN_RETURN_THRESHOLD } from './constants'
+import { OrmModel } from 'functional-models-orm/interfaces'
 
 type DatastoreProviderInputs = {
   aws3: Aws3Client
@@ -24,6 +29,8 @@ type Aws3Client = {
   GetCommand: any
   DeleteCommand: any
   ScanCommand: any
+  BatchWriteCommandInput: any
+  BatchWriteCommand: any
 }
 
 type DynamoOptions = {
@@ -36,6 +43,9 @@ const dynamoDatastoreProvider = ({
   getTableNameForModel = defaultTableModelName,
   createUniqueId = undefined,
 }: DatastoreProviderInputs): DatastoreProvider => {
+  if (!getTableNameForModel) {
+    throw new Error(`Must include ${getTableNameForModel}`)
+  }
   const _doSearchUntilThresholdOrNoLastEvaluatedKey = (
     dynamo: any,
     tableName: string,
@@ -55,10 +65,10 @@ const dynamoDatastoreProvider = ({
       const take = usingTake ? ormQuery.take : SCAN_RETURN_THRESHOLD
       const lastEvaluatedKey = get(data, 'LastEvaluatedKey', null)
       /*
-          We want to keep scanning until we've met our threshold OR
-         there is no more keys to evaluate OR
-         we have a "take" and we've hit our max.
-        */
+        We want to keep scanning until we've met our threshold OR
+        there is no more keys to evaluate OR
+        we have a "take" and we've hit our max.
+      */
       const stopForThreshold = instances.length > take
       const stopForNoMore = !lastEvaluatedKey
       if (stopForThreshold || stopForNoMore) {
@@ -151,11 +161,41 @@ const dynamoDatastoreProvider = ({
     })
   }
 
+  const bulkInsert = <T extends FunctionalModel>(
+    model: Model<T>,
+    instances: readonly ModelInstance<T>[]
+  ): Promise<void> => {
+    return Promise.resolve().then(async () => {
+      if (instances.length < 1) {
+        return undefined
+      }
+      const tableName = getTableNameForModel(model)
+      const docClient = _getDocClient()
+      const requestItems = await instances.reduce(
+        async (accP, instance) => {
+          const acc = await accP
+          const data = await instance.toObj()
+          return acc.concat({
+            PutRequest: { Item: data },
+          })
+        },
+        Promise.resolve([] as any)
+      )
+      const command = new aws3.BatchWriteCommand({
+        RequestItems: {
+          [tableName]: requestItems,
+        },
+      })
+      return docClient.send(command).then(() => undefined)
+    })
+  }
+
   return {
     search,
     retrieve,
     save,
     delete: deleteObj,
+    bulkInsert,
   }
 }
 
