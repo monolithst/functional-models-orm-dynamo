@@ -19,13 +19,14 @@ const createDynamoDatastoreProvider = context => {
     throw new Error(`Must include awsRegion in the world parameters.`)
   }
   context.table = context.parameters.testTable
+  const dynamoDbClient = new dynamo.DynamoDBClient({
+    region: context.parameters.awsRegion,
+  })
   return createDatastoreProvider.default({
     aws3: {
       ...dynamo,
       ...libDynamo,
-    },
-    dynamoOptions: {
-      region: context.parameters.awsRegion,
+      dynamoDbClient,
     },
     getTableNameForModel: () => {
       return `${context.table}`

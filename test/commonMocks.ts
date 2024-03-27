@@ -1,18 +1,10 @@
 import sinon from 'sinon'
 
 const createAws3MockClient = () => {
-  const dynamoDbClient = sinon.stub()
-  const sendSinon = sinon.stub().resolves({ Items: [] })
-  class DynamoDBClient {
-    constructor(...args: any) {
-      dynamoDbClient(...args)
-    }
-    public send(...args: any) {
-      return sendSinon(...args)
-    }
-    static sinon = dynamoDbClient
-    static sendSinon = sendSinon
+  const dynamoDbClient = {
+    send: sinon.stub(),
   }
+
   const dynamoDbDocumentClientSend = sinon.stub().resolves({ Items: [] })
   const DynamoDBDocumentClient = {
     from: sinon.stub().returns({
@@ -58,7 +50,7 @@ const createAws3MockClient = () => {
   }
 
   return {
-    DynamoDBClient,
+    dynamoDbClient,
     DynamoDBDocumentClient,
     PutCommand,
     GetCommand,

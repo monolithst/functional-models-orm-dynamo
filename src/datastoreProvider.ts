@@ -22,19 +22,17 @@ const MAX_BATCH_SIZE = 25
 
 type DatastoreProviderInputs = {
   aws3: Aws3Client
-  dynamoOptions: DynamoOptions
   getTableNameForModel?: (m: Model<any>) => string
   createUniqueId?: ((s: any) => string) | undefined
 }
 
 type Aws3Client = {
-  DynamoDBClient: any
+  dynamoDbClient: any
   DynamoDBDocumentClient: any
   PutCommand: any
   GetCommand: any
   DeleteCommand: any
   ScanCommand: any
-  BatchWriteCommandInput: any
   BatchWriteCommand: any
 }
 
@@ -44,7 +42,6 @@ type DynamoOptions = {
 
 const dynamoDatastoreProvider = ({
   aws3,
-  dynamoOptions,
   getTableNameForModel = defaultTableModelName,
   createUniqueId = undefined,
 }: DatastoreProviderInputs): DatastoreProvider => {
@@ -95,8 +92,7 @@ const dynamoDatastoreProvider = ({
   }
 
   const _getDocClient = () => {
-    const dynamo = new aws3.DynamoDBClient(dynamoOptions)
-    return aws3.DynamoDBDocumentClient.from(dynamo)
+    return aws3.DynamoDBDocumentClient.from(aws3.dynamoDbClient)
   }
 
   const search = <T extends FunctionalModel>(

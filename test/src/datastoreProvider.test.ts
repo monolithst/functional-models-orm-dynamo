@@ -382,11 +382,11 @@ describe('/src/datastoreProvider.ts', function () {
         const dynamoOptions = { region: 'fake-region' }
         const instance = createDatastoreProvider({ aws3, dynamoOptions })
         const models = [
-          createTestModel1({ id: 1, name: 'my-name' }),
-          createTestModel1({ id: 2, name: 'my-name' }),
-          createTestModel1({ id: 3, name: 'my-name' }),
-          createTestModel1({ id: 4, name: 'my-name' }),
-          createTestModel1({ id: 5, name: 'my-name' }),
+          createTestModel1({ id: '1', name: 'my-name' }),
+          createTestModel1({ id: '2', name: 'my-name' }),
+          createTestModel1({ id: '3', name: 'my-name' }),
+          createTestModel1({ id: '4', name: 'my-name' }),
+          createTestModel1({ id: '5', name: 'my-name' }),
         ]
         // @ts-ignore
         await instance.bulkInsert(
@@ -399,11 +399,11 @@ describe('/src/datastoreProvider.ts', function () {
         const expected = {
           RequestItems: {
             testname: [
-              { PutRequest: { Item: { id: 1, name: 'my-name' } } },
-              { PutRequest: { Item: { id: 2, name: 'my-name' } } },
-              { PutRequest: { Item: { id: 3, name: 'my-name' } } },
-              { PutRequest: { Item: { id: 4, name: 'my-name' } } },
-              { PutRequest: { Item: { id: 5, name: 'my-name' } } },
+              { PutRequest: { Item: { id: '1', name: 'my-name' } } },
+              { PutRequest: { Item: { id: '2', name: 'my-name' } } },
+              { PutRequest: { Item: { id: '3', name: 'my-name' } } },
+              { PutRequest: { Item: { id: '4', name: 'my-name' } } },
+              { PutRequest: { Item: { id: '5', name: 'my-name' } } },
             ],
           },
         }
