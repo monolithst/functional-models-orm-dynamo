@@ -5,12 +5,7 @@ import {
   ModelInstance,
   PrimaryKeyType,
 } from 'functional-models/interfaces'
-import {
-  OrmQuery,
-  DatastoreProvider,
-  OrmModelInstance,
-  OrmModel,
-} from 'functional-models-orm/interfaces'
+import { OrmQuery, DatastoreProvider } from 'functional-models-orm/interfaces'
 import {
   getTableNameForModel as defaultTableModelName,
   splitArrayIntoArraysOfMaxSize,
@@ -22,27 +17,22 @@ const MAX_BATCH_SIZE = 25
 
 type DatastoreProviderInputs = {
   readonly aws3: Aws3Client
-  readonly dynamoOptions: DynamoOptions
   readonly getTableNameForModel?: (m: Model<any>) => string
   readonly createUniqueId?: ((s: any) => string) | undefined
 }
 
 type Aws3Client = {
-  readonly DynamoDBClient: any
+  readonly dynamoDbClient: any
   readonly DynamoDBDocumentClient: any
   readonly PutCommand: any
   readonly GetCommand: any
   readonly DeleteCommand: any
   readonly ScanCommand: any
-}
-
-type DynamoOptions = {
-  readonly region: string
+  readonly BatchWriteCommand: any
 }
 
 const dynamoDatastoreProvider = ({
   aws3,
-  dynamoOptions,
   getTableNameForModel = defaultTableModelName,
   createUniqueId = undefined,
 }: DatastoreProviderInputs): DatastoreProvider => {
@@ -97,8 +87,10 @@ const dynamoDatastoreProvider = ({
       removeUndefinedValues: true,
     }
     const translateConfig = { marshallOptions }
-    const dynamo = new aws3.DynamoDBClient(dynamoOptions)
-    return aws3.DynamoDBDocumentClient.from(dynamo, translateConfig)
+    return aws3.DynamoDBDocumentClient.from(
+      aws3.dynamoDbClient,
+      translateConfig
+    )
   }
 
   const search = <T extends FunctionalModel>(
