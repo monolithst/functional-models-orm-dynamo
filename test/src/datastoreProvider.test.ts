@@ -295,6 +295,24 @@ describe('/src/datastoreProvider.ts', function () {
       })
     })
     describe('#retrieve()', () => {
+      it('should create a document client with marshallOptions.removeUndefinedValues=true', async () => {
+        const aws3 = createAws3MockClient()
+        const dynamoOptions = { region: 'fake-region' }
+        const instance = createDatastoreProvider({
+          aws3,
+          dynamoOptions,
+          getTableNameForModel: () => 'FakeTable',
+        })
+        const modelInstance = createTestModel1({ id: 'my-id', name: 'my-name' })
+        await instance.retrieve(modelInstance.getModel(), 'my-id')
+        const actual = aws3.DynamoDBDocumentClient.from.getCall(0).args[1]
+        const expected = {
+          marshallOptions: {
+            removeUndefinedValues: true,
+          },
+        }
+        assert.deepInclude(actual, expected)
+      })
       it('should pass the correct table name into GetCommand', async () => {
         const aws3 = createAws3MockClient()
         const dynamoOptions = { region: 'fake-region' }

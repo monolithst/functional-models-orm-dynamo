@@ -11,23 +11,23 @@ import queryBuilder from './queryBuilder'
 import { SCAN_RETURN_THRESHOLD } from './constants'
 
 type DatastoreProviderInputs = {
-  aws3: Aws3Client
-  dynamoOptions: DynamoOptions
-  getTableNameForModel?: (m: Model<any>) => string
-  createUniqueId?: ((s: any) => string) | undefined
+  readonly aws3: Aws3Client
+  readonly dynamoOptions: DynamoOptions
+  readonly getTableNameForModel?: (m: Model<any>) => string
+  readonly createUniqueId?: ((s: any) => string) | undefined
 }
 
 type Aws3Client = {
-  DynamoDBClient: any
-  DynamoDBDocumentClient: any
-  PutCommand: any
-  GetCommand: any
-  DeleteCommand: any
-  ScanCommand: any
+  readonly DynamoDBClient: any
+  readonly DynamoDBDocumentClient: any
+  readonly PutCommand: any
+  readonly GetCommand: any
+  readonly DeleteCommand: any
+  readonly ScanCommand: any
 }
 
 type DynamoOptions = {
-  region: string
+  readonly region: string
 }
 
 const dynamoDatastoreProvider = ({
@@ -80,8 +80,12 @@ const dynamoDatastoreProvider = ({
   }
 
   const _getDocClient = () => {
+    const marshallOptions = {
+      removeUndefinedValues: true,
+    }
+    const translateConfig = { marshallOptions }
     const dynamo = new aws3.DynamoDBClient(dynamoOptions)
-    return aws3.DynamoDBDocumentClient.from(dynamo)
+    return aws3.DynamoDBDocumentClient.from(dynamo, translateConfig)
   }
 
   const search = <T extends FunctionalModel>(

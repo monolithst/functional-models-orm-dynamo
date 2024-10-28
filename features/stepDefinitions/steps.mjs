@@ -1,6 +1,6 @@
 import { assert } from 'chai'
 import { Before, After, Given, When, Then } from '@cucumber/cucumber'
-import functionalModels from 'functional-models'
+import functionalModels, { ObjectProperty } from 'functional-models'
 import { ormQuery, orm } from 'functional-models-orm'
 import createDatastoreProvider from '../../dist/datastoreProvider.js'
 import * as dynamo from '@aws-sdk/client-dynamodb'
@@ -45,12 +45,55 @@ const MODELS = {
       },
     },
   ],
+  Model2: [
+    'Model2',
+    {
+      properties: {
+        name: TextProperty({ required: false }),
+        key: TextProperty({ required: false }),
+      },
+    },
+  ],
+  Model3: [
+    'Model3',
+    {
+      properties: {
+        name: TextProperty({ required: true }),
+        obj: ObjectProperty({ required: true }),
+      },
+    },
+  ],
 }
 
 const MODEL_DATA = {
   ModelData1: {
     id: 'test-id',
     name: 'test-name',
+  },
+  ModelData2: {
+    id: 'test-id',
+    name: 'test-name',
+    key: undefined,
+  },
+  StoredModelData2: {
+    id: 'test-id',
+    name: 'test-name',
+    key: null,
+  },
+  ModelData3: {
+    id: 'test-id',
+    name: 'test-name',
+    obj: {
+      nested: 'value',
+      nested2: undefined,
+    },
+  },
+  StoredModelData3: {
+    id: 'test-id',
+    name: 'test-name',
+    obj: {
+      nested: 'value',
+    },
   },
   SearchResult1: {
     instances: [
@@ -172,7 +215,13 @@ When('search is called on the Model using the query', function () {
 
 Then('the result matches {word}', function (dataKey) {
   const data = MODEL_DATA[dataKey]
-  assert.deepEqual(this.result, data)
+  try {
+    assert.deepEqual(this.result, data)
+  } catch (e) {
+    console.log(this.result)
+    console.log(data)
+    throw e
+  }
 })
 
 Then('{int} search results are found', function (count) {
