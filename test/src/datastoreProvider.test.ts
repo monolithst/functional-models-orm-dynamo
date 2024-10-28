@@ -70,6 +70,17 @@ describe('/src/datastoreProvider.ts', function () {
         })
       })
     })
+    it('should throw an exception if getTaqbleNameForModel is null', () => {
+      const aws3 = createAws3MockClient()
+      const dynamoOptions = { region: 'fake-region' }
+      assert.throws(() => {
+        const datastoreProvider = createDatastoreProvider({
+          aws3,
+          dynamoOptions,
+          getTableNameForModel: null,
+        })
+      })
+    })
     it('should have a "search" function', () => {
       const aws3 = createAws3MockClient()
       const dynamoOptions = { region: 'fake-region' }
@@ -381,6 +392,55 @@ describe('/src/datastoreProvider.ts', function () {
           TableName: 'testmodel1',
         }
         assert.deepEqual(actual, expected)
+      })
+    })
+    describe('#bulkInsert()', () => {
+      it('should format the objects correctly when passed to BatchWriteCommand', async () => {
+        const aws3 = createAws3MockClient()
+        const dynamoOptions = { region: 'fake-region' }
+        const instance = createDatastoreProvider({ aws3, dynamoOptions })
+        const models = [
+          createTestModel1({ id: '1', name: 'my-name' }),
+          createTestModel1({ id: '2', name: 'my-name' }),
+          createTestModel1({ id: '3', name: 'my-name' }),
+          createTestModel1({ id: '4', name: 'my-name' }),
+          createTestModel1({ id: '5', name: 'my-name' }),
+        ]
+        // @ts-ignore
+        await instance.bulkInsert(
+          {
+            getName: () => 'TestName',
+          },
+          models
+        )
+        const actual = aws3.BatchWriteCommand.sinon.getCall(0).args[0]
+        const expected = {
+          RequestItems: {
+            testname: [
+              { PutRequest: { Item: { id: '1', name: 'my-name' } } },
+              { PutRequest: { Item: { id: '2', name: 'my-name' } } },
+              { PutRequest: { Item: { id: '3', name: 'my-name' } } },
+              { PutRequest: { Item: { id: '4', name: 'my-name' } } },
+              { PutRequest: { Item: { id: '5', name: 'my-name' } } },
+            ],
+          },
+        }
+        assert.deepEqual(actual, expected)
+      })
+      it('should not call BulkWriteCommand if there are no models', async () => {
+        const aws3 = createAws3MockClient()
+        const dynamoOptions = { region: 'fake-region' }
+        const instance = createDatastoreProvider({ aws3, dynamoOptions })
+        const models = []
+        // @ts-ignore
+        await instance.bulkInsert(
+          {
+            getName: () => 'TestName',
+          },
+          models
+        )
+        const actual = aws3.BatchWriteCommand.sinon.called
+        assert.isFalse(actual)
       })
     })
   })
