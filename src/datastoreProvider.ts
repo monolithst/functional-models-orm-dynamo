@@ -9,7 +9,7 @@ import { OrmQuery, DatastoreProvider } from 'functional-models-orm/interfaces'
 import {
   getTableNameForModel as defaultTableModelName,
   splitArrayIntoArraysOfMaxSize,
-} from './utils'
+} from './lib'
 import queryBuilder from './queryBuilder'
 import { SCAN_RETURN_THRESHOLD } from './constants'
 
@@ -17,7 +17,9 @@ const MAX_BATCH_SIZE = 25
 
 type DatastoreProviderInputs = {
   readonly aws3: Aws3Client
-  readonly getTableNameForModel?: (m: Model<any>) => string
+  readonly getTableNameForModel?: <T extends FunctionalModel>(
+    m: Model<T>
+  ) => string
   readonly createUniqueId?: ((s: any) => string) | undefined
 }
 

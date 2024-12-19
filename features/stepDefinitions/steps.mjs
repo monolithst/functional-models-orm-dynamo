@@ -71,7 +71,7 @@ const MODEL_DATA = {
   ModelData1: () => ({
     id: 'test-id',
     name: 'test-name',
-  },
+  }),
   ModelData2: {
     id: 'test-id',
     name: 'test-name',
@@ -97,7 +97,6 @@ const MODEL_DATA = {
       nested: 'value',
     },
   },
-  }),
   BulkModelData1: () => ({
     id: randomUUID(),
     name: 'test-me',

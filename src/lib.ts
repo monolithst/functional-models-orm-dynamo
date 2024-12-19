@@ -1,14 +1,14 @@
-import { Model } from 'functional-models/interfaces'
+import { FunctionalModel, Model } from 'functional-models/interfaces'
 
-const getTableNameForModel = (model: Model<any>) => {
+const getTableNameForModel = <T extends FunctionalModel>(model: Model<T>) => {
   return model.getName().toLowerCase().replace('_', '-').replace(' ', '-')
 }
 
 const _recursiveSplitArray = <T>(
-  currentArrays: T[][],
-  currentArray: T[],
+  currentArrays: readonly (readonly T[])[],
+  currentArray: readonly T[],
   maxSize: number
-): T[][] => {
+): readonly (readonly T[])[] => {
   // Grab the first part
   const sliced = currentArray.slice(0, maxSize)
   // Get the last part
@@ -25,9 +25,9 @@ const _recursiveSplitArray = <T>(
 }
 
 const splitArrayIntoArraysOfMaxSize = <T>(
-  array: T[],
+  array: readonly T[],
   maxSize: number
-): T[][] => {
+): readonly (readonly T[])[] => {
   if (!Array.isArray(array)) {
     throw new Error(`Datatype must be array.`)
   }

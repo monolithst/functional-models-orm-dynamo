@@ -4,7 +4,7 @@ import sinon from 'sinon'
 import {
   getTableNameForModel,
   splitArrayIntoArraysOfMaxSize,
-} from '../../src/utils'
+} from '../../src/lib'
 
 const buildModel = (name: string): Model<any> => {
   return {
@@ -12,7 +12,7 @@ const buildModel = (name: string): Model<any> => {
   } as Model<any>
 }
 
-describe('/src/utils.ts', () => {
+describe('/src/lib.ts', () => {
   describe('#splitArrayIntoArraysOfMaxSize()', () => {
     it('should throw an exception if the input is not an array', () => {
       assert.throws(() => {
