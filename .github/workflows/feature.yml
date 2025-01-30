@@ -23,7 +23,7 @@ jobs:
           node-version: ${{ matrix.node-version }}
 
       - name: Create dynamo db for tests
-        run: docker compose -f ./dynamodb-feature-tests.yml up -d
+        run: docker compose -f ./dynamo-feature-tests.yml up -d
 
       - name: Install dependencies
         run: npm install
