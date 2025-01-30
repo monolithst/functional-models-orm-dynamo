@@ -1,6 +1,6 @@
 {
   "name": "functional-models-orm-dynamo",
-  "version": "3.0",
+  "version": "3.0.0",
   "description": "An implmentation of functional-models for dynamodb.",
   "main": "index.js",
   "types": "index.d.ts",
