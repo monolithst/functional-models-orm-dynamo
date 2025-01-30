@@ -1,35 +1,68 @@
 import { randomUUID } from 'crypto'
 import { assert } from 'chai'
 import { Before, After, Given, When, Then } from '@cucumber/cucumber'
-import functionalModels, { ObjectProperty } from 'functional-models'
-import { ormQuery, orm } from 'functional-models-orm'
-import createDatastoreProvider from '../../dist/datastoreProvider.js'
+import {
+  ObjectProperty,
+  TextProperty,
+  ModelType,
+  PrimaryKeyUuidProperty,
+  createOrm,
+  queryBuilder,
+} from 'functional-models'
+import * as dynamoDatastoreAdapter from '../../src/datastoreAdapter'
 import * as dynamo from '@aws-sdk/client-dynamodb'
 import * as libDynamo from '@aws-sdk/lib-dynamodb'
 
-const { TextProperty, Model, UniqueId } = functionalModels
-
-const createDynamoDatastoreProvider = context => {
-  if (!context.parameters.testTable) {
-    throw new Error(
-      `Must include a testing table that exists in the world parameters.`
-    )
-  }
-  if (!context.parameters.awsRegion) {
-    throw new Error(`Must include awsRegion in the world parameters.`)
-  }
-  context.table = context.parameters.testTable
+const createDynamoDatastoreProvider = async () => {
   const dynamoDbClient = new dynamo.DynamoDBClient({
-    region: context.parameters.awsRegion,
+    region: 'http://127.0.0.1:42514',
+    credentials: {
+      accessKeyId: 'x',
+      secretAccessKey: 'x',
+    },
+    endpoint: {
+      hostname: 'localhost',
+      port: 42514,
+      path: '',
+      protocol: 'http:',
+    },
   })
-  return createDatastoreProvider.default({
+  /*
+  const tableNames = ['model-1', 'model-2', 'model-3'].map(
+    name => `functional-models-orm-dynamo-${name}`
+  )
+  const commands = tableNames.map(name => {
+    return new dynamo.CreateTableCommand({
+      TableName: name,
+      AttributeDefinitions: [
+        {
+          AttributeName: 'id',
+          AttributeType: 'S',
+        },
+      ],
+      KeySchema: [
+        {
+          KeyType: 'HASH',
+          AttributeName: 'id',
+        },
+      ],
+    })
+  })
+  await Promise.all(
+    commands.map(x =>
+      dynamoDbClient.send(x).catch(e => {
+        console.log(e)
+      })
+    )
+  )
+
+   */
+
+  return dynamoDatastoreAdapter.create({
     aws3: {
       ...dynamo,
       ...libDynamo,
       dynamoDbClient,
-    },
-    getTableNameForModel: () => {
-      return `${context.table}`
     },
   })
 }
@@ -40,26 +73,32 @@ const DATASTORES = {
 
 const MODELS = {
   Model1: [
-    'Model1',
     {
+      pluralName: 'Model1',
+      namespace: 'functional-models-orm-dynamo',
       properties: {
+        id: TextProperty(),
         name: TextProperty(),
       },
     },
   ],
   Model2: [
-    'Model2',
     {
+      pluralName: 'Model2',
+      namespace: 'functional-models-orm-dynamo',
       properties: {
+        id: TextProperty(),
         name: TextProperty({ required: false }),
         key: TextProperty({ required: false }),
       },
     },
   ],
   Model3: [
-    'Model3',
     {
+      pluralName: 'Model3',
+      namespace: 'functional-models-orm-dynamo',
       properties: {
+        id: TextProperty(),
         name: TextProperty({ required: true }),
         obj: ObjectProperty({ required: true }),
       },
@@ -72,31 +111,31 @@ const MODEL_DATA = {
     id: 'test-id',
     name: 'test-name',
   }),
-  ModelData2: {
+  ModelData2: () => ({
     id: 'test-id',
     name: 'test-name',
     key: undefined,
-  },
-  StoredModelData2: {
+  }),
+  StoredModelData2: () => ({
     id: 'test-id',
     name: 'test-name',
     key: null,
-  },
-  ModelData3: {
+  }),
+  ModelData3: () => ({
     id: 'test-id',
     name: 'test-name',
     obj: {
       nested: 'value',
       nested2: undefined,
     },
-  },
-  StoredModelData3: {
+  }),
+  StoredModelData3: () => ({
     id: 'test-id',
     name: 'test-name',
     obj: {
       nested: 'value',
     },
-  },
+  }),
   BulkModelData1: () => ({
     id: randomUUID(),
     name: 'test-me',
@@ -115,20 +154,15 @@ const MODEL_DATA = {
 }
 
 const QUERIES = {
-  SearchQuery1: ormQuery
-    .ormQueryBuilder()
-    .property('name', 'test-name')
-    .take(1)
-    .compile(),
-  BulkSearchQuery1: ormQuery
-    .ormQueryBuilder()
+  SearchQuery1: queryBuilder().property('name', 'test-name').take(1).compile(),
+  BulkSearchQuery1: queryBuilder()
     //.property('name', 'test-me')
     .compile(),
 }
 
-const _emptyDatastoreProvider = async (model, datastoreProvider) => {
-  await datastoreProvider
-    .search(model, ormQuery.ormQueryBuilder().compile())
+const _emptyDatastoreProvider = async (model, datastoreAdapter) => {
+  await datastoreAdapter
+    .search(model, queryBuilder().compile())
     .then(async obj =>
       Promise.all(
         obj.instances.map(x => {
@@ -138,18 +172,18 @@ const _emptyDatastoreProvider = async (model, datastoreProvider) => {
     )
 }
 
-Given('orm using the {word}', function (store) {
-  store = DATASTORES[store](this)
+Given('orm using the {word}', async function (store) {
+  store = await DATASTORES[store](this)
   if (!store) {
     throw new Error(`${store} did not result in a datastore.`)
   }
 
-  this.BaseModel = orm({ datastoreProvider: store }).BaseModel
-  this.datastoreProvider = store
+  this.Model = createOrm({ datastoreAdapter: store }).Model
+  this.datastoreAdapter = store
 })
 
 Given('the datastore is emptied of models', function () {
-  return _emptyDatastoreProvider(this.model, this.datastoreProvider)
+  return _emptyDatastoreProvider(this.model, this.datastoreAdapter)
 })
 
 Given('the orm is used to create {word}', function (modelType) {
@@ -157,15 +191,7 @@ Given('the orm is used to create {word}', function (modelType) {
   if (!model) {
     throw new Error(`${modelType} did not result in a model.`)
   }
-  this.model = this.BaseModel(...model)
-})
-
-Given('the ormQueryBuilder is used to make {word}', function (queryKey) {
-  if (!QUERY_BUILDER_FUNCS[queryKey]) {
-    throw new Error(`${queryKey} did not result in a query`)
-  }
-
-  this.query = QUERY_BUILDER_FUNCS[queryKey]()
+  this.model = this.Model(...model)
 })
 
 When('instances of the model are created with {word}', function (dataKey) {
@@ -191,7 +217,13 @@ When('save is called on the instances', function () {
 })
 
 When('save is called on the model', function () {
-  return this.modelInstance.save().then(x => (this.saveResult = x))
+  return this.modelInstance
+    .save()
+    .catch(e => {
+      console.log(e)
+      throw e
+    })
+    .then(x => (this.saveResult = x))
 })
 
 When('delete is called on the model', function () {
@@ -201,20 +233,25 @@ When('delete is called on the model', function () {
 When("the datastore's retrieve is called with values", function (table) {
   const rows = table.rowsHash()
   const id = rows.id
-  return this.datastoreProvider.retrieve(this.model, id).then(obj => {
+  return this.datastoreAdapter.retrieve(this.model, id).then(obj => {
     this.result = obj
   })
 })
 
-When("the datastore's delete is called with modelInstance", function () {
-  return this.datastoreProvider.delete(this.modelInstance).then(obj => {
-    this.result = obj
-  })
+When("the datastore's delete is called with modelInstance", async function () {
+  return this.datastoreAdapter
+    .delete(
+      this.modelInstance.getModel(),
+      await this.modelInstance.getPrimaryKey()
+    )
+    .then(obj => {
+      this.result = obj
+    })
 })
 
 When("the datastore's search is called with {word}", function (key) {
   const query = QUERIES[key]
-  return this.datastoreProvider.search(this.model, query).then(async obj => {
+  return this.datastoreAdapter.search(this.model, query).then(async obj => {
     this.result = obj
   })
 })
@@ -224,12 +261,10 @@ When('search is called on the Model using the query', function () {
 })
 
 Then('the result matches {word}', function (dataKey) {
-  const data = MODEL_DATA[dataKey]
+  const data = MODEL_DATA[dataKey]()
   try {
     assert.deepEqual(this.result, data)
   } catch (e) {
-    console.log(this.result)
-    console.log(data)
     throw e
   }
 })

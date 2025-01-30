@@ -1,4 +1,4 @@
-name: Unit Tests
+name: Feature Tests
 
 on:
   push:
@@ -7,8 +7,8 @@ on:
     branches: [master]
 
 jobs:
-  tests:
-    name: Tests
+  featureTests:
+    name: FeatureTests
     runs-on: ubuntu-latest
 
     strategy:
@@ -21,13 +21,15 @@ jobs:
         uses: actions/setup-node@v2
         with:
           node-version: ${{ matrix.node-version }}
+
+      - name: Create dynamo db for tests
+        run: docker compose -f ./dynamo-feature-tests.yml up -d
+
       - name: Install dependencies
         run: npm install
-      - name: Run Unit Tests
-        run: npm test
-      - run: npm run test:coverage
 
-      - name: Coveralls
-        uses: coverallsapp/github-action@master
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build
+        run: npm run build
+
+      - name: Run Cucumber Tests
+        run: npm run test:features
