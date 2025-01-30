@@ -1,4 +1,4 @@
-import { Model } from 'functional-models/interfaces'
+import { ModelType } from 'functional-models'
 import { assert } from 'chai'
 import sinon from 'sinon'
 import {
@@ -6,16 +6,17 @@ import {
   splitArrayIntoArraysOfMaxSize,
 } from '../../src/lib'
 
-const buildModel = (name: string): Model<any> => {
+const buildModel = (name: string): ModelType<any> => {
   return {
     getName: () => name,
-  } as Model<any>
+  } as ModelType<any>
 }
 
 describe('/src/lib.ts', () => {
   describe('#splitArrayIntoArraysOfMaxSize()', () => {
     it('should throw an exception if the input is not an array', () => {
       assert.throws(() => {
+        // @ts-ignore
         splitArrayIntoArraysOfMaxSize('input', 2)
       })
     })
@@ -54,9 +55,9 @@ describe('/src/lib.ts', () => {
       const expected = 'my-table'
       assert.deepEqual(actual, expected)
     })
-    it('should return "mytable" for "MyTable"', () => {
+    it('should return "my-table" for "MyTable"', () => {
       const actual = getTableNameForModel(buildModel('MyTable'))
-      const expected = 'mytable'
+      const expected = 'my-table'
       assert.deepEqual(actual, expected)
     })
   })

@@ -1,87 +1,89 @@
 import { get, merge } from 'lodash'
 import {
-  Model,
-  FunctionalModel,
+  ModelType,
+  DataDescription,
   ModelInstance,
   PrimaryKeyType,
-} from 'functional-models/interfaces'
-import { OrmQuery, DatastoreProvider } from 'functional-models-orm/interfaces'
+  DatastoreAdapter,
+  OrmSearch,
+} from 'functional-models'
+import { filterResults } from 'functional-models-orm-memory'
 import {
+  fromDynamo,
   getTableNameForModel as defaultTableModelName,
   splitArrayIntoArraysOfMaxSize,
+  buildScanQuery,
 } from './lib'
-import queryBuilder from './queryBuilder'
 import { SCAN_RETURN_THRESHOLD } from './constants'
 
 const MAX_BATCH_SIZE = 25
+type WithRequired<T, K extends keyof T> = T & { [P in K]-?: T[P] }
 
-type DatastoreProviderInputs = {
-  readonly aws3: Aws3Client
-  readonly getTableNameForModel?: <T extends FunctionalModel>(
-    m: Model<T>
-  ) => string
-  readonly createUniqueId?: ((s: any) => string) | undefined
-}
+type DatastoreAdapterInputs = Readonly<{
+  aws3: Aws3Client
+  getTableNameForModel?: <T extends DataDescription>(m: ModelType<T>) => string
+}>
 
-type Aws3Client = {
-  readonly dynamoDbClient: any
-  readonly DynamoDBDocumentClient: any
-  readonly PutCommand: any
-  readonly GetCommand: any
-  readonly DeleteCommand: any
-  readonly ScanCommand: any
-  readonly BatchWriteCommand: any
-}
+type Aws3Client = Readonly<{
+  dynamoDbClient: any
+  DynamoDBDocumentClient: any
+  PutCommand: any
+  GetCommand: any
+  DeleteCommand: any
+  ScanCommand: any
+  BatchWriteCommand: any
+}>
 
-const dynamoDatastoreProvider = ({
+const create = ({
   aws3,
   getTableNameForModel = defaultTableModelName,
-  createUniqueId = undefined,
-}: DatastoreProviderInputs): DatastoreProvider => {
+}: DatastoreAdapterInputs): WithRequired<DatastoreAdapter, 'bulkInsert'> => {
   if (!getTableNameForModel) {
     throw new Error(`Must include ${getTableNameForModel}`)
   }
-  const _doSearchUntilThresholdOrNoLastEvaluatedKey = (
+  const _doSearchUntilThresholdOrNoLastEvaluatedKey = async <
+    T extends DataDescription,
+  >(
     dynamo: any,
     tableName: string,
-    ormQuery: OrmQuery,
-    oldInstancesFound = []
+    ormQuery: OrmSearch,
+    oldInstancesFound: T[] = []
   ) => {
-    const query = queryBuilder({ createUniqueId })(tableName, ormQuery)
+    const query = buildScanQuery(tableName, ormQuery.page)
     const command = new aws3.ScanCommand(query)
-    return dynamo.send(command).then((data: any) => {
-      const instances = data.Items.map((item: object) => {
-        return Object.entries(item).reduce((acc, [key, obj]) => {
-          return merge(acc, { [key]: obj })
-        }, {})
-      }).concat(oldInstancesFound)
+    const data = await dynamo.send(command)
+    const unfiltered: T[] = data.Items.map(fromDynamo)
 
-      const usingTake = ormQuery.take && ormQuery.take > 0
-      const take = usingTake ? ormQuery.take : SCAN_RETURN_THRESHOLD
-      const lastEvaluatedKey = get(data, 'LastEvaluatedKey', null)
-      /*
-        We want to keep scanning until we've met our threshold OR
-        there is no more keys to evaluate OR
-        we have a "take" and we've hit our max.
-      */
-      const stopForThreshold = instances.length > take
-      const stopForNoMore = !lastEvaluatedKey
-      if (stopForThreshold || stopForNoMore) {
-        return {
-          instances: instances.slice(0, take),
-          page: usingTake ? null : lastEvaluatedKey,
-        }
+    const filtered = filterResults<T>(ormQuery, unfiltered).concat(
+      oldInstancesFound
+    )
+
+    const usingTake = ormQuery.take && ormQuery.take > 0
+    const take = usingTake ? ormQuery.take : SCAN_RETURN_THRESHOLD
+    const lastEvaluatedKey = get(data, 'LastEvaluatedKey', null)
+    /*
+      We want to keep scanning until we've met our threshold OR
+      there is no more keys to evaluate OR
+      we have a "take" and we've hit our max.
+    */
+    // @ts-ignore
+    const stopForThreshold = filtered.length > take
+    const stopForNoMore = !lastEvaluatedKey
+    if (stopForThreshold || stopForNoMore) {
+      return {
+        instances: filtered.slice(0, take),
+        page: usingTake ? null : lastEvaluatedKey,
       }
-      const newQuery = merge(ormQuery, {
-        page: lastEvaluatedKey,
-      })
-      return _doSearchUntilThresholdOrNoLastEvaluatedKey(
-        dynamo,
-        tableName,
-        newQuery,
-        instances
-      )
+    }
+    const newQuery = merge(ormQuery, {
+      page: lastEvaluatedKey,
     })
+    return _doSearchUntilThresholdOrNoLastEvaluatedKey(
+      dynamo,
+      tableName,
+      newQuery,
+      filtered
+    )
   }
 
   const _getDocClient = () => {
@@ -95,9 +97,9 @@ const dynamoDatastoreProvider = ({
     )
   }
 
-  const search = <T extends FunctionalModel>(
-    model: Model<T>,
-    ormQuery: OrmQuery
+  const search = <T extends DataDescription>(
+    model: ModelType<T>,
+    ormQuery: OrmSearch
   ) => {
     return Promise.resolve().then(async () => {
       const tableName = getTableNameForModel(model)
@@ -110,14 +112,14 @@ const dynamoDatastoreProvider = ({
     })
   }
 
-  const retrieve = <T extends FunctionalModel>(
-    model: Model<T>,
+  const retrieve = <T extends DataDescription>(
+    model: ModelType<T>,
     id: PrimaryKeyType
   ) => {
     return Promise.resolve().then(() => {
       const tableName = getTableNameForModel(model)
       const docClient = _getDocClient()
-      const primaryKeyName = model.getPrimaryKeyName()
+      const primaryKeyName = model.getModelDefinition().primaryKeyName
       const command = new aws3.GetCommand({
         TableName: tableName,
         Key: { [primaryKeyName]: `${id}` },
@@ -126,13 +128,15 @@ const dynamoDatastoreProvider = ({
     })
   }
 
-  const save = async <T extends FunctionalModel, TModel extends Model<T>>(
-    instance: ModelInstance<T, TModel>
+  const save = async <T extends DataDescription>(
+    instance: ModelInstance<T>
   ) => {
     return Promise.resolve().then(async () => {
       const tableName = getTableNameForModel(instance.getModel())
       const docClient = _getDocClient()
-      const primaryKeyName = instance.getModel().getPrimaryKeyName()
+      const primaryKeyName = instance
+        .getModel()
+        .getModelDefinition().primaryKeyName
       const data = await instance.toObj()
       const key = `${(data as any)[primaryKeyName]}`
       const keyObj = { [primaryKeyName]: key }
@@ -145,15 +149,15 @@ const dynamoDatastoreProvider = ({
     })
   }
 
-  const deleteObj = <T extends FunctionalModel, TModel extends Model<T>>(
-    instance: ModelInstance<T, TModel>
+  const deleteObj = <T extends DataDescription>(
+    model: ModelType<T>,
+    primaryKey: PrimaryKeyType
   ) => {
     return Promise.resolve().then(async () => {
-      const tableName = getTableNameForModel(instance.getModel())
+      const tableName = getTableNameForModel(model)
       const docClient = _getDocClient()
-      const primaryKeyName = instance.getModel().getPrimaryKeyName()
-      const id = await instance.getPrimaryKey()
-      const keyObj = { [primaryKeyName]: `${id}` }
+      const primaryKeyName = model.getModelDefinition().primaryKeyName
+      const keyObj = { [primaryKeyName]: `${primaryKey}` }
       const command = new aws3.DeleteCommand({
         TableName: tableName,
         Key: keyObj,
@@ -162,8 +166,8 @@ const dynamoDatastoreProvider = ({
     })
   }
 
-  const bulkInsert = <T extends FunctionalModel>(
-    model: Model<T>,
+  const bulkInsert = <T extends DataDescription>(
+    model: ModelType<T>,
     instances: readonly ModelInstance<T>[]
   ): Promise<void> => {
     return Promise.resolve().then(async () => {
@@ -209,4 +213,4 @@ const dynamoDatastoreProvider = ({
   }
 }
 
-export default dynamoDatastoreProvider
+export { create }

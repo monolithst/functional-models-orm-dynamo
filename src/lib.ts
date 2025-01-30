@@ -1,7 +1,11 @@
-import { FunctionalModel, Model } from 'functional-models/interfaces'
+import kebabCase from 'lodash/kebabCase'
+import { DataDescription, ModelType, ToObjectResult } from 'functional-models'
+import { merge } from 'lodash'
 
-const getTableNameForModel = <T extends FunctionalModel>(model: Model<T>) => {
-  return model.getName().toLowerCase().replace('_', '-').replace(' ', '-')
+const getTableNameForModel = <T extends DataDescription>(
+  model: ModelType<T>
+) => {
+  return kebabCase(model.getName()).toLowerCase()
 }
 
 const _recursiveSplitArray = <T>(
@@ -34,4 +38,33 @@ const splitArrayIntoArraysOfMaxSize = <T>(
   return _recursiveSplitArray([], array, maxSize)
 }
 
-export { getTableNameForModel, splitArrayIntoArraysOfMaxSize }
+const fromDynamo = <T extends DataDescription>(
+  obj: object
+): ToObjectResult<T> => {
+  return Object.entries(obj).reduce((acc, [key, obj]) => {
+    return merge(acc, { [key]: obj })
+  }, {}) as ToObjectResult<T>
+}
+
+const buildScanQuery = (table: string, page?: string) => {
+  const startKey = page
+    ? {
+        ExclusiveStartKey: page,
+        FilterExpression: undefined,
+        ExpressionAttributeNames: undefined,
+        ExpressionAttributeValues: undefined,
+      }
+    : {}
+
+  return {
+    ...startKey,
+    TableName: table,
+  }
+}
+
+export {
+  getTableNameForModel,
+  splitArrayIntoArraysOfMaxSize,
+  fromDynamo,
+  buildScanQuery,
+}
